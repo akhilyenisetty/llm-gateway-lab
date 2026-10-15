@@ -1,0 +1,68 @@
+# Anthropic API prices, USD per million tokens (MTok), first-party Claude API, standard tier.
+# Source: https://platform.claude.com/docs/en/about-claude/pricing
+# Checked: 2026-10-14. Re-check the source before relying on these numbers.
+#
+# Fields per model:
+#   input           base (uncached) input tokens
+#   output          output tokens (includes thinking tokens)
+#   cache_write_5m  writes to the 5-minute prompt cache
+#   cache_write_1h  writes to the 1-hour prompt cache
+#   cache_read      cache hits and refreshes
+#
+# A model priced by prompt length uses `tiers` instead: each tier applies while the
+# prompt (input + cache reads + cache writes) is at most `max_prompt_tokens`; the last
+# tier has no limit.
+
+checked_on: "2026-10-14"
+source: https://platform.claude.com/docs/en/about-claude/pricing
+
+# Applied to every price category when the request sets `inference_geo` to this value.
+inference_geo_multipliers:
+  us: 1.1
+
+models:
+  claude-fable-5-1:
+    {input: 10, output: 50, cache_write_5m: 12.50, cache_write_1h: 20, cache_read: 0.25}
+  claude-fable-5:
+    {input: 10, output: 50, cache_write_5m: 12.50, cache_write_1h: 20, cache_read: 1}
+  claude-opus-5-5:
+    {input: 4, output: 20, cache_write_5m: 5, cache_write_1h: 8, cache_read: 0.20}
+  claude-opus-5:
+    {input: 5, output: 25, cache_write_5m: 6.25, cache_write_1h: 10, cache_read: 0.50}
+  claude-opus-4-8:
+    {input: 5, output: 25, cache_write_5m: 6.25, cache_write_1h: 10, cache_read: 0.50}
+  claude-opus-4-7:
+    {input: 5, output: 25, cache_write_5m: 6.25, cache_write_1h: 10, cache_read: 0.50}
+  claude-opus-4-6:
+    {input: 5, output: 25, cache_write_5m: 6.25, cache_write_1h: 10, cache_read: 0.50}
+  claude-opus-4-5-20251101:
+    aliases: [claude-opus-4-5]
+    input: 5
+    output: 25
+    cache_write_5m: 6.25
+    cache_write_1h: 10
+    cache_read: 0.50
+  claude-sonnet-5-5:
+    {input: 2, output: 10, cache_write_5m: 2.50, cache_write_1h: 4, cache_read: 0.10}
+  claude-sonnet-5:
+    {input: 2, output: 10, cache_write_5m: 2.50, cache_write_1h: 4, cache_read: 0.20}
+  claude-sonnet-4-6:
+    {input: 3, output: 15, cache_write_5m: 3.75, cache_write_1h: 6, cache_read: 0.30}
+  claude-sonnet-4-5-20250929:
+    aliases: [claude-sonnet-4-5]
+    input: 3
+    output: 15
+    cache_write_5m: 3.75
+    cache_write_1h: 6
+    cache_read: 0.30
+  claude-haiku-5-5:
+    tiers:
+      - {max_prompt_tokens: 100000, input: 0.10, output: 0.50, cache_write_5m: 0.125, cache_write_1h: 0.20, cache_read: 0.01}
+      - {input: 0.50, output: 2.50, cache_write_5m: 0.625, cache_write_1h: 1, cache_read: 0.05}
+  claude-haiku-4-5-20251001:
+    aliases: [claude-haiku-4-5]
+    input: 1
+    output: 5
+    cache_write_5m: 1.25
+    cache_write_1h: 2
+    cache_read: 0.10
