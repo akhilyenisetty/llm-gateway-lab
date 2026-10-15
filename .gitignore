@@ -22,3 +22,6 @@ results/
 .DS_Store
 .idea/
 .vscode/
+
+# Local AI assistant instructions (kept out of the public repo)
+CLAUDE.md
