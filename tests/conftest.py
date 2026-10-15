@@ -23,7 +23,7 @@ from gateway.models import Base, RequestContent, RequestLog
 from gateway.settings import Settings
 
 UPSTREAM = "https://api.anthropic.test"
-REAL_KEY = "sk-ant-real-upstream-key"
+REAL_KEY = "fake-upstream-key-for-tests"
 GATEWAY_URL = "http://gateway.test"
 
 
