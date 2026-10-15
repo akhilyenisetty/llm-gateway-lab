@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Frontend
+node_modules/
+
+# Local data
+*.db
+*.sqlite3
+pgdata/
+results/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
