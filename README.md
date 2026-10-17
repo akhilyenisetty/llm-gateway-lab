@@ -4,8 +4,8 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-2 (gateway core and streaming). Budgets, categories, the dashboard,
-and context handoff are planned next.
+**Status:** Stages 1-3 (gateway core, streaming, budgets and alerts). Categories, the
+dashboard, and context handoff are planned next.
 
 ## How it works
 
@@ -35,8 +35,9 @@ client (Anthropic SDK, gateway key) ──► gateway ──► Anthropic API (r
 | `X-Session-Id` | Groups calls into a session. |
 | `X-Category` | Optional category tag. |
 | `X-App` | Which application sent the call. |
+| `X-Session-Budget-Usd` | Spend budget for this session (see [Budgets and alerts](#budgets-and-alerts)). |
 
-`X-Session-Id` and `X-Category` are stripped before forwarding; `X-App` is forwarded,
+`X-Session-Id`, `X-Category`, and `X-Session-Budget-Usd` are stripped before forwarding; `X-App` is forwarded,
 because Claude Code sends `x-app: cli` to Anthropic itself. The session ID comes from, in
 order: `X-Session-Id`; Claude Code's own `x-claude-code-session-id` header (its built-in
 `x-app: cli` is then recorded as `claude-code`); or a derived ID. The derived ID is
@@ -74,6 +75,59 @@ It covers uncached input, output, cache reads, and 5-minute and 1-hour cache wri
 tiered pricing for models priced by prompt length and the 1.1x multiplier for
 `inference_geo: "us"`. Calls to models missing from the table, and fast-mode calls, are
 recorded with an empty cost and a `cost_note` explaining why, rather than a guessed number.
+
+### Budgets and alerts
+
+A session is identified by (gateway key, session ID). The same session ID sent with two
+keys is two separate sessions, and one key can never affect another key's sessions.
+
+Each session has two budgets, and the gateway records an alert the first time a session
+reaches each threshold (default 80% and 100%, `ALERT_THRESHOLDS`). Alerts are recorded and
+logged; they never block calls.
+
+- **Spend:** the session's total cost against its budget. Who can set it:
+
+  | Who | How | Scope |
+  |---|---|---|
+  | Operator | `DEFAULT_SESSION_BUDGET_USD` in `.env` ($5.00), restart | Every session without its own budget |
+  | Operator | Admin API `PUT .../budget` | One session; a client header never overrides it |
+  | Client (gateway key) | `X-Session-Budget-Usd` header | Its own sessions only; ignored when `ALLOW_CLIENT_BUDGETS=false` |
+
+  Lowering a budget below current spend alerts immediately.
+- **Context:** each call's context use (input + cache read + cache write + output tokens,
+  all of which count toward the window) against its model's context window, from
+  `config/prices.yaml`. This is checked per call, not on "the session's latest call",
+  because one session can interleave conversations of very different sizes: Claude Code
+  sends small title and summary calls between ~70K-token main turns. A call near its
+  window is the conversation that needs a handoff.
+
+Each (session, kind, threshold) alert fires once. A unique constraint with
+`INSERT ... ON CONFLICT DO NOTHING` enforces that in the database, so concurrent calls
+crossing a threshold together still produce one alert. Budget writes and alert checks run
+after the call's own row is committed, so they can never lose the record of a call.
+
+Spend is checked after each call commits its own row, so the last of several concurrent
+calls always sees all of them and a crossed threshold isn't missed. Known limitation: a
+threshold that already fired doesn't fire again if the budget is raised and crossed a
+second time.
+
+To give a Claude Code session its own budget:
+
+```bash
+ANTHROPIC_CUSTOM_HEADERS="X-Session-Budget-Usd: 2.00" ANTHROPIC_BASE_URL=... claude
+```
+
+### Admin API
+
+Enabled by setting `ADMIN_API_KEY`; requests send it as `Authorization: Bearer <key>`.
+It is separate from client gateway keys, so a client can't raise its own budget.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /admin/keys` | Gateway keys: id, prefix, name (never the key or its hash) |
+| `GET /admin/keys/{key_id}/sessions/{session_id}` | Spend, budget (and its source), spend fraction, alerts |
+| `PUT /admin/keys/{key_id}/sessions/{session_id}/budget` | Set a budget: `{"budget_usd": "2.50"}` |
+| `GET /admin/alerts?key_id=&session_id=&limit=` | Recent alerts, newest first |
 
 ### Privacy: `STORE_CONTENT`
 
