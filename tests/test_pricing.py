@@ -108,3 +108,16 @@ def test_usage_from_api_handles_nulls() -> None:
         }
     )
     assert usage == Usage(5, 6, 0, 0, 0)
+
+
+def test_usage_from_api_total_beyond_breakdown_counts_extra_as_5m() -> None:
+    # A streamed message_delta can update the total without resending the TTL breakdown.
+    usage = Usage.from_api(
+        {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cache_creation_input_tokens": 100,
+            "cache_creation": {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30},
+        }
+    )
+    assert (usage.cache_write_5m_tokens, usage.cache_write_1h_tokens) == (70, 30)

@@ -39,12 +39,12 @@ class Usage:
     def from_api(cls, usage: dict[str, Any]) -> "Usage":
         breakdown = usage.get("cache_creation") or {}
         write_total = usage.get("cache_creation_input_tokens") or 0
-        if breakdown:
-            write_5m = breakdown.get("ephemeral_5m_input_tokens") or 0
-            write_1h = breakdown.get("ephemeral_1h_input_tokens") or 0
-        else:
-            # No TTL breakdown: 5 minutes is the API's default cache TTL.
-            write_5m, write_1h = write_total, 0
+        write_5m = breakdown.get("ephemeral_5m_input_tokens") or 0
+        write_1h = breakdown.get("ephemeral_1h_input_tokens") or 0
+        # The total is authoritative. Writes it has that the TTL breakdown doesn't (no
+        # breakdown sent, or a streamed total updated without one) are counted at the
+        # 5-minute rate, the API's default cache TTL.
+        write_5m += max(0, write_total - write_5m - write_1h)
         return cls(
             input_tokens=usage.get("input_tokens") or 0,
             output_tokens=usage.get("output_tokens") or 0,
