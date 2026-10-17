@@ -66,7 +66,9 @@ class RequestLog(Base):
     error_type: Mapped[str | None] = mapped_column(String(100))
     stop_reason: Mapped[str | None] = mapped_column(String(50))
     upstream_request_id: Mapped[str | None] = mapped_column(String(100))
-    latency_ms: Mapped[int] = mapped_column(Integer)
+    latency_ms: Mapped[int] = mapped_column(Integer)  # until the last byte
+    # Streaming only: time until the first content delta, i.e. when output starts appearing.
+    ttft_ms: Mapped[int | None] = mapped_column(Integer)
 
     # Usage, copied from the response's `usage` object. Null when the call failed.
     input_tokens: Mapped[int | None] = mapped_column(Integer)  # uncached input only
