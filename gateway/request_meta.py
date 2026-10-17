@@ -5,7 +5,15 @@ Clients tag calls with optional headers:
     X-Category     a client-chosen category tag
     X-App          which application sent the call
 
-Session ID derivation when X-Session-Id is absent:
+Session ID, in order of preference:
+1. X-Session-Id, set by the client.
+2. x-claude-code-session-id, which Claude Code sends on every request of a session
+   (main turns, subagents, titles, compaction). Claude Code also sends its own
+   `x-app: cli`; that built-in value is recorded as "claude-code" (a custom X-App set
+   via ANTHROPIC_CUSTOM_HEADERS is kept as is).
+3. Derived, as below.
+
+Session ID derivation when neither header is present:
 The Messages API is stateless, so every turn of a conversation resends the whole
 history, and the system prompt plus the first user message stay the same for the
 whole conversation. Hashing (gateway key, app, system prompt, first message) gives a
@@ -24,12 +32,13 @@ from starlette.datastructures import Headers
 
 MAX_SESSION_ID_LEN = 200
 MAX_TAG_LEN = 100
+CLAUDE_CODE_BUILTIN_APP = "cli"
 
 
 @dataclass(frozen=True)
 class RequestMeta:
     session_id: str
-    session_id_source: str  # "header" | "derived"
+    session_id_source: str  # "header" | "claude-code" | "derived"
     category: str | None
     app: str | None
 
@@ -58,4 +67,8 @@ def read_meta(headers: Headers, api_key_id: uuid.UUID, body: dict[str, Any]) -> 
     category = _clean(headers.get("x-category"), MAX_TAG_LEN)
     if session_id := _clean(headers.get("x-session-id"), MAX_SESSION_ID_LEN):
         return RequestMeta(session_id, "header", category, app)
+    if session_id := _clean(headers.get("x-claude-code-session-id"), MAX_SESSION_ID_LEN):
+        if app in (None, CLAUDE_CODE_BUILTIN_APP):
+            app = "claude-code"
+        return RequestMeta(session_id, "claude-code", category, app)
     return RequestMeta(derive_session_id(api_key_id, app, body), "derived", category, app)

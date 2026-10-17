@@ -15,6 +15,31 @@ def test_header_session_id_wins() -> None:
     assert (meta.session_id, meta.session_id_source, meta.category) == ("abc", "header", "docs")
 
 
+def test_claude_code_session_header_is_used() -> None:
+    meta = read_meta(Headers({"x-claude-code-session-id": "cc-123"}), KEY_A, BODY)
+    assert (meta.session_id, meta.session_id_source, meta.app) == (
+        "cc-123",
+        "claude-code",
+        "claude-code",
+    )
+
+
+def test_claude_code_builtin_app_header_is_labelled_claude_code() -> None:
+    headers = Headers({"x-app": "cli", "x-claude-code-session-id": "cc-123"})
+    assert read_meta(headers, KEY_A, BODY).app == "claude-code"
+    # Without Claude Code's session header, "cli" is just a client's own label.
+    assert read_meta(Headers({"x-app": "cli"}), KEY_A, BODY).app == "cli"
+
+
+def test_explicit_headers_win_over_claude_code_ones() -> None:
+    headers = Headers(
+        {"x-session-id": "mine", "x-app": "my-app", "x-claude-code-session-id": "cc-123"}
+    )
+    assert read_meta(headers, KEY_A, BODY).session_id == "mine"
+    only_app = Headers({"x-app": "my-app", "x-claude-code-session-id": "cc-123"})
+    assert read_meta(only_app, KEY_A, BODY).app == "my-app"
+
+
 def test_blank_headers_are_ignored() -> None:
     meta = read_meta(Headers({"x-session-id": "  ", "x-category": "", "x-app": " "}), KEY_A, BODY)
     assert meta.session_id_source == "derived"

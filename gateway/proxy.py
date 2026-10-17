@@ -25,6 +25,7 @@ HOP_BY_HOP = {
 
 # Request headers we never forward upstream: client credentials (replaced with the real
 # key), gateway-only metadata, and headers the HTTP client recomputes itself.
+# X-App is read but still forwarded: Claude Code sends `x-app: cli` to Anthropic itself.
 DROP_REQUEST_HEADERS = HOP_BY_HOP | {
     "host",
     "content-length",
@@ -34,7 +35,6 @@ DROP_REQUEST_HEADERS = HOP_BY_HOP | {
     "cookie",
     "x-session-id",
     "x-category",
-    "x-app",
 }
 
 # Response headers recomputed by our server. The upstream body is already decompressed
