@@ -121,3 +121,10 @@ def test_usage_from_api_total_beyond_breakdown_counts_extra_as_5m() -> None:
         }
     )
     assert (usage.cache_write_5m_tokens, usage.cache_write_1h_tokens) == (70, 30)
+
+
+def test_context_windows(prices: PriceTable) -> None:
+    assert prices.context_window("claude-sonnet-5-5") == 1_000_000
+    assert prices.context_window("claude-haiku-4-5") == 200_000  # alias
+    assert prices.context_window("claude-haiku-4-5-20251001") == 200_000
+    assert prices.context_window("claude-unknown") is None

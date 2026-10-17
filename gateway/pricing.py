@@ -83,15 +83,18 @@ class PriceTable:
         models: dict[str, list[Tier]],
         geo_multipliers: dict[str, Decimal],
         checked_on: str,
+        context_windows: dict[str, int] | None = None,
     ) -> None:
         self._models = models
         self._geo_multipliers = geo_multipliers
+        self._context_windows = context_windows or {}
         self.checked_on = checked_on
 
     @classmethod
     def load(cls, path: Path) -> "PriceTable":
         data = yaml.safe_load(path.read_text())
         models: dict[str, list[Tier]] = {}
+        windows: dict[str, int] = {}
         for model_id, entry in data["models"].items():
             raw_tiers = entry.get("tiers") or [entry]
             tiers = [
@@ -106,8 +109,13 @@ class PriceTable:
                 raise ValueError(f"{model_id}: only the last tier must omit max_prompt_tokens")
             for name in [model_id, *entry.get("aliases", [])]:
                 models[name] = tiers
+                if "context_window" in entry:
+                    windows[name] = int(entry["context_window"])
         geo = {k: Decimal(str(v)) for k, v in (data.get("inference_geo_multipliers") or {}).items()}
-        return cls(models, geo, str(data.get("checked_on", "")))
+        return cls(models, geo, str(data.get("checked_on", "")), windows)
+
+    def context_window(self, model: str | None) -> int | None:
+        return self._context_windows.get(model or "")
 
     def cost(
         self,
