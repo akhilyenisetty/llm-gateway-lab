@@ -24,7 +24,12 @@ class CallRecord:
     latency_ms: int
     response_body: dict[str, Any] | None = None
     upstream_request_id: str | None = None
-    error_type: str | None = None  # set for gateway-side failures (timeout, unreachable)
+    # Set for failures the response body doesn't describe: timeouts, unreachable
+    # upstream, and stream outcomes (mid-stream error, disconnects).
+    error_type: str | None = None
+    ttft_ms: int | None = None
+    # Why the recorded usage is incomplete, e.g. the client left before the stream ended.
+    usage_note: str | None = None
 
 
 def build_row(record: CallRecord, prices: PriceTable) -> RequestLog:
@@ -57,6 +62,7 @@ def build_row(record: CallRecord, prices: PriceTable) -> RequestLog:
         stop_reason=resp.get("stop_reason"),
         upstream_request_id=record.upstream_request_id,
         latency_ms=record.latency_ms,
+        ttft_ms=record.ttft_ms,
         inference_geo=inference_geo,
         speed=speed,
     )
@@ -70,7 +76,7 @@ def build_row(record: CallRecord, prices: PriceTable) -> RequestLog:
         row.cache_write_1h_tokens = usage.cache_write_1h_tokens
         row.service_tier = usage_json.get("service_tier")
         row.cost_usd = cost.cost_usd
-        row.cost_note = cost.note
+        row.cost_note = "; ".join(n for n in (record.usage_note, cost.note) if n) or None
         if cost.cost_usd is None:
             logger.warning("cost not computed for request %s: %s", row.id, cost.note)
     return row

@@ -1,6 +1,6 @@
 """FastAPI app: the gateway's HTTP surface.
 
-    POST /v1/messages   forwarded to Anthropic and recorded (non-streaming in Stage 1)
+    POST /v1/messages   forwarded to Anthropic and recorded (streaming and non-streaming)
     *    /v1/{path}     other Anthropic endpoints, forwarded with the key swap, not recorded
     GET  /health        liveness check, no auth
 
@@ -24,6 +24,7 @@ from gateway.pricing import PriceTable
 from gateway.proxy import anthropic_error, client_headers, upstream_headers
 from gateway.request_meta import read_meta
 from gateway.settings import Settings, get_settings
+from gateway.streaming import ClosingStreamingResponse, stream_body
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +60,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def unauthorized() -> Response:
         return anthropic_error(401, "authentication_error", "invalid or missing gateway key")
 
-    async def forward(request: Request, path: str, body: bytes) -> httpx.Response:
-        return await request.app.state.upstream.request(
+    async def forward(
+        request: Request, path: str, body: bytes, *, stream: bool = False
+    ) -> httpx.Response:
+        """Send the request upstream. With stream=True, returns once the status line and
+        headers arrive; the body is read later (and the response must be closed)."""
+        client: httpx.AsyncClient = request.app.state.upstream
+        upstream_request = client.build_request(
             request.method,
             path,
             params=request.query_params,  # e.g. ?beta=true, sent by the SDK's beta client
@@ -68,6 +74,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers=upstream_headers(
                 request.headers, settings.anthropic_api_key.get_secret_value()
             ),
+        )
+        return await client.send(upstream_request, stream=stream)
+
+    async def save(request: Request, record: recorder.CallRecord) -> None:
+        await recorder.save(
+            request.app.state.session_factory,
+            record,
+            request.app.state.prices,
+            store_content=settings.store_content,
         )
 
     @app.get("/health")
@@ -87,10 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body = None
         if not isinstance(body, dict):
             return anthropic_error(400, "invalid_request_error", "request body must be JSON")
-        if body.get("stream"):
-            return anthropic_error(
-                400, "invalid_request_error", "streaming is not supported by this gateway yet"
-            )
+        is_stream = bool(body.get("stream"))
 
         meta = read_meta(request.headers, api_key.id, body)
         record = recorder.CallRecord(
@@ -104,16 +116,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         start = time.perf_counter()
         try:
-            upstream = await forward(request, "/v1/messages", raw)
+            upstream = await forward(request, "/v1/messages", raw, stream=is_stream)
         except httpx.TimeoutException:
             record.status_code, record.error_type = 504, "upstream_timeout"
-            response = anthropic_error(504, "api_error", "upstream request timed out")
+            response: Response = anthropic_error(504, "api_error", "upstream request timed out")
         except httpx.RequestError as exc:
             record.status_code, record.error_type = 502, "upstream_unreachable"
             response = anthropic_error(502, "api_error", f"could not reach upstream: {exc!r}")
         else:
             record.status_code = upstream.status_code
             record.upstream_request_id = upstream.headers.get("request-id")
+            if is_stream and upstream.status_code == 200:
+                # Hand the open upstream stream to the response; it records the call
+                # itself when the stream ends (see streaming.py).
+                return ClosingStreamingResponse(
+                    stream_body(
+                        upstream,
+                        record,
+                        start,
+                        lambda r: save(request, r),
+                        rebuild_message=settings.store_content,
+                    ),
+                    status_code=200,
+                    headers=client_headers(upstream.headers),
+                )
+            # Non-streaming, or a streaming request that failed before streaming began
+            # (Anthropic then sends a normal JSON error): read the whole body.
+            await upstream.aread()
+            await upstream.aclose()
             try:
                 record.response_body = upstream.json()
             except ValueError:
@@ -127,12 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         # Written before responding: simple and testable. It adds one DB insert of
         # latency; moving it off the request path is an option if that ever matters.
-        await recorder.save(
-            request.app.state.session_factory,
-            record,
-            request.app.state.prices,
-            store_content=settings.store_content,
-        )
+        await save(request, record)
         return response
 
     @app.api_route("/v1/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

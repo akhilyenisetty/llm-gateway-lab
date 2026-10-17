@@ -47,6 +47,8 @@ async def test_sdk_call_returns_normal_message_and_logs_exact_usage(
     assert sent.headers["x-api-key"] == REAL_KEY
     assert gateway_key not in str(sent.headers)
     assert "x-session-id" not in sent.headers
+    assert "x-category" not in sent.headers
+    assert sent.headers["x-app"] == "pytest"  # forwarded: Claude Code sends x-app itself
     assert "anthropic-version" in sent.headers
     assert json.loads(sent.content)["model"] == "claude-sonnet-5-5"
 
@@ -144,20 +146,6 @@ async def test_unknown_model_is_logged_without_cost(
     assert row.input_tokens == 12
     assert row.cost_usd is None
     assert row.cost_note == "no price entry for model 'claude-new-9'"
-
-
-async def test_streaming_is_rejected_until_stage_2(
-    app: FastAPI, http: httpx.AsyncClient, gateway_key: str, upstream: respx.MockRouter
-) -> None:
-    route = upstream.post("/v1/messages")
-    resp = await http.post(
-        "/v1/messages",
-        headers={"x-api-key": gateway_key},
-        json={"model": "claude-sonnet-5-5", "max_tokens": 10, "messages": USER_MSG, "stream": True},
-    )
-    assert resp.status_code == 400
-    assert resp.json()["error"]["type"] == "invalid_request_error"
-    assert not route.called
 
 
 async def test_invalid_json_is_rejected(http: httpx.AsyncClient, gateway_key: str) -> None:
