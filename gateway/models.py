@@ -9,7 +9,16 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -80,6 +89,11 @@ class RequestLog(Base):
     speed: Mapped[str | None] = mapped_column(String(20))
     service_tier: Mapped[str | None] = mapped_column(String(20))
 
+    # Context use of this call: prompt (input + cache read + cache write) plus output, which
+    # all count toward the model's context window. Window is null for unknown models.
+    context_tokens: Mapped[int | None] = mapped_column(Integer)
+    context_window: Mapped[int | None] = mapped_column(Integer)
+
     # Cost in USD, computed when the row is written. Null if the model has no price entry
     # or the call used a pricing mode we don't model (see pricing.py).
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 8))
@@ -96,3 +110,53 @@ class RequestContent(Base):
     )
     request_json: Mapped[Any] = mapped_column(JsonType)
     response_json: Mapped[Any | None] = mapped_column(JsonType)
+
+
+class SessionBudget(Base):
+    """A per-session spend budget, overriding the default. Only sessions with an override
+    have a row; spend itself is always computed from `requests`.
+
+    A session is identified by (gateway key, session ID) everywhere, so the same session ID
+    sent with two keys is two sessions, and one key can't affect another key's sessions.
+    """
+
+    __tablename__ = "session_budgets"
+
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    budget_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    source: Mapped[str] = mapped_column(String(20))  # "header" | "admin"
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Alert(Base):
+    """A session crossed a threshold of its spend budget or of a model's context window.
+
+    The unique constraint makes each (session, kind, threshold) alert fire once, even when
+    concurrent calls cross the threshold at the same moment.
+    """
+
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint(
+            "api_key_id",
+            "session_id",
+            "kind",
+            "threshold",
+            name="uq_alerts_key_session_kind_threshold",
+        ),
+        Index("ix_alerts_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"))
+    session_id: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20))  # "spend" | "context"
+    threshold: Mapped[Decimal] = mapped_column(Numeric(5, 3))
+    observed: Mapped[Decimal] = mapped_column(Numeric(10, 4))  # fraction reached, e.g. 0.8312
+    # The call that triggered it (null when triggered by a budget change).
+    request_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("requests.id", ondelete="SET NULL")
+    )
+    detail: Mapped[Any] = mapped_column(JsonType)  # e.g. spent and budget, or tokens and window
