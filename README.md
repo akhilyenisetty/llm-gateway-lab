@@ -4,8 +4,8 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stage 1 (gateway core, non-streaming). Streaming, budgets, categories, the
-dashboard, and context handoff are planned; see `CLAUDE.md` for the roadmap.
+**Status:** Stages 1-2 (gateway core and streaming). Budgets, categories, the dashboard,
+and context handoff are planned next.
 
 ## How it works
 
@@ -16,8 +16,8 @@ client (Anthropic SDK, gateway key) ──► gateway ──► Anthropic API (r
                               Postgres: one row per call
 ```
 
-- **Same API as Anthropic.** The gateway serves `POST /v1/messages`, so the Anthropic SDK
-  works unchanged. Other `/v1/*` paths (`/v1/messages/count_tokens`, `/v1/models`, ...)
+- **Same API as Anthropic.** The gateway serves `POST /v1/messages`, streaming and
+  non-streaming, so the Anthropic SDK and Claude Code work unchanged. Other `/v1/*` paths (`/v1/messages/count_tokens`, `/v1/models`, ...)
   are forwarded but not recorded.
 - **Key swap.** Clients authenticate with gateway-issued keys (`x-api-key` or
   `Authorization: Bearer`). The gateway replaces them with the real `ANTHROPIC_API_KEY`
@@ -36,11 +36,35 @@ client (Anthropic SDK, gateway key) ──► gateway ──► Anthropic API (r
 | `X-Category` | Optional category tag. |
 | `X-App` | Which application sent the call. |
 
-These are stripped before forwarding. Without `X-Session-Id`, the gateway derives one:
+`X-Session-Id` and `X-Category` are stripped before forwarding; `X-App` is forwarded,
+because Claude Code sends `x-app: cli` to Anthropic itself. The session ID comes from, in
+order: `X-Session-Id`; Claude Code's own `x-claude-code-session-id` header (its built-in
+`x-app: cli` is then recorded as `claude-code`); or a derived ID. The derived ID is
 `derived-` + a hash of (gateway key, app, system prompt, first message). Every turn of a
 conversation resends the same first message, so all turns share the ID, and no content is
 stored to compute it. Two conversations with an identical system prompt and first message
 (same key and app) would be grouped together; send `X-Session-Id` when that matters.
+
+### Streaming
+
+With `"stream": true`, the gateway forwards Anthropic's server-sent events to the client
+byte for byte as they arrive (pings and unknown event types included) and parses a copy
+on the side. Usage comes from `message_start` plus the cumulative `message_delta`
+events. `latency_ms` is the time to the last byte; `ttft_ms` is the time to the first
+content delta. Each streamed call is recorded once, when it ends, with an outcome in
+`error_type`:
+
+| `error_type` | Meaning |
+|---|---|
+| empty | Stream completed (`message_stop` received) |
+| an API error type, e.g. `overloaded_error` | Anthropic sent an error event mid-stream |
+| `upstream_timeout`, `upstream_disconnected` | The connection to Anthropic stalled or broke; the client gets a final SSE `error` event |
+| `incomplete_stream` | The stream ended without `message_stop` |
+| `client_disconnected` | The client left; the gateway closes the upstream connection so Anthropic stops generating |
+
+For the last three, usage is what had arrived so far, so output tokens and cost are a
+lower bound (noted in `cost_note`). Errors before the stream starts (e.g. a 429) are
+plain JSON responses, recorded like non-streaming errors.
 
 ### Cost
 
@@ -87,6 +111,16 @@ message = client.messages.create(
     extra_headers={"X-App": "demo", "X-Session-Id": "demo-1"},
 )
 ```
+
+### Claude Code through the gateway
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8000 ANTHROPIC_API_KEY=gw_... claude
+```
+
+Calls are grouped by Claude Code's session ID automatically. Note that Claude Code then
+bills per token to the Anthropic API key behind the gateway, not to a claude.ai
+subscription.
 
 Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revoke <prefix>`.
 
