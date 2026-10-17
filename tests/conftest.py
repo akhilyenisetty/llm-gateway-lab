@@ -4,7 +4,9 @@ respx intercepts the gateway's outgoing httpx calls, so tests need no API key or
 Clients reach the gateway in-process through an ASGI transport (no real sockets).
 """
 
+import uuid
 from collections.abc import AsyncIterator
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -17,13 +19,14 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from gateway.auth import create_key
+from gateway.auth import create_key, hash_key
 from gateway.main import create_app
-from gateway.models import Base, RequestContent, RequestLog
+from gateway.models import Alert, ApiKey, Base, RequestContent, RequestLog
 from gateway.settings import Settings
 
 UPSTREAM = "https://api.anthropic.test"
 REAL_KEY = "fake-upstream-key-for-tests"
+ADMIN_KEY = "test-admin-key"
 GATEWAY_URL = "http://gateway.test"
 
 
@@ -60,12 +63,38 @@ def store_content() -> bool:
 
 
 @pytest.fixture
-def settings(tmp_path: Path, store_content: bool) -> Settings:
+def default_budget() -> Decimal:
+    """Override per test with @pytest.mark.parametrize("default_budget", [...])."""
+    return Decimal("5.00")
+
+
+@pytest.fixture
+def allow_client_budgets() -> bool:
+    return True
+
+
+@pytest.fixture
+def admin_key() -> str:
+    """Override with "" to test the admin API disabled."""
+    return ADMIN_KEY
+
+
+@pytest.fixture
+def settings(
+    tmp_path: Path,
+    store_content: bool,
+    default_budget: Decimal,
+    admin_key: str,
+    allow_client_budgets: bool,
+) -> Settings:
     return Settings(
         anthropic_api_key=REAL_KEY,
         anthropic_base_url=UPSTREAM,
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
         store_content=store_content,
+        default_session_budget_usd=default_budget,
+        admin_api_key=admin_key,
+        allow_client_budgets=allow_client_budgets,
     )
 
 
@@ -128,3 +157,17 @@ async def fetch_rows(app: FastAPI) -> list[RequestLog]:
 async def fetch_contents(app: FastAPI) -> list[RequestContent]:
     async with app.state.session_factory() as session:
         return list((await session.execute(select(RequestContent))).scalars())
+
+
+async def fetch_alerts(app: FastAPI) -> list[Alert]:
+    async with app.state.session_factory() as session:
+        result = await session.execute(select(Alert).order_by(Alert.created_at))
+        return list(result.scalars())
+
+
+async def key_id_of(app: FastAPI, plaintext: str) -> uuid.UUID:
+    async with app.state.session_factory() as session:
+        result = await session.execute(
+            select(ApiKey.id).where(ApiKey.key_hash == hash_key(plaintext))
+        )
+        return result.scalar_one()

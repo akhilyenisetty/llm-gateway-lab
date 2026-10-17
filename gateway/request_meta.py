@@ -4,6 +4,7 @@ Clients tag calls with optional headers:
     X-Session-Id   groups calls into a session
     X-Category     a client-chosen category tag
     X-App          which application sent the call
+    X-Session-Budget-Usd  spend budget for this session (see budgets.py)
 
 Session ID, in order of preference:
 1. X-Session-Id, set by the client.
@@ -26,9 +27,12 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from starlette.datastructures import Headers
+
+from gateway.budgets import parse_budget
 
 MAX_SESSION_ID_LEN = 200
 MAX_TAG_LEN = 100
@@ -41,6 +45,7 @@ class RequestMeta:
     session_id_source: str  # "header" | "claude-code" | "derived"
     category: str | None
     app: str | None
+    budget_usd: Decimal | None = None
 
 
 def _clean(value: str | None, max_len: int) -> str | None:
@@ -65,10 +70,12 @@ def derive_session_id(api_key_id: uuid.UUID, app: str | None, body: dict[str, An
 def read_meta(headers: Headers, api_key_id: uuid.UUID, body: dict[str, Any]) -> RequestMeta:
     app = _clean(headers.get("x-app"), MAX_TAG_LEN)
     category = _clean(headers.get("x-category"), MAX_TAG_LEN)
+    budget = parse_budget(headers.get("x-session-budget-usd"))
     if session_id := _clean(headers.get("x-session-id"), MAX_SESSION_ID_LEN):
-        return RequestMeta(session_id, "header", category, app)
+        return RequestMeta(session_id, "header", category, app, budget)
     if session_id := _clean(headers.get("x-claude-code-session-id"), MAX_SESSION_ID_LEN):
         if app in (None, CLAUDE_CODE_BUILTIN_APP):
             app = "claude-code"
-        return RequestMeta(session_id, "claude-code", category, app)
-    return RequestMeta(derive_session_id(api_key_id, app, body), "derived", category, app)
+        return RequestMeta(session_id, "claude-code", category, app, budget)
+    session_id = derive_session_id(api_key_id, app, body)
+    return RequestMeta(session_id, "derived", category, app, budget)

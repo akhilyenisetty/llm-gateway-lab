@@ -35,6 +35,7 @@ DROP_REQUEST_HEADERS = HOP_BY_HOP | {
     "cookie",
     "x-session-id",
     "x-category",
+    "x-session-budget-usd",
 }
 
 # Response headers recomputed by our server. The upstream body is already decompressed

@@ -3,6 +3,7 @@
     POST /v1/messages   forwarded to Anthropic and recorded (streaming and non-streaming)
     *    /v1/{path}     other Anthropic endpoints, forwarded with the key swap, not recorded
     GET  /health        liveness check, no auth
+    /admin/...          budgets and alerts, with ADMIN_API_KEY (see admin.py)
 
 Run with: uvicorn gateway.main:app
 """
@@ -16,7 +17,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Request, Response
 
-from gateway import recorder
+from gateway import admin, recorder
 from gateway.auth import extract_key, find_active_key
 from gateway.db import make_engine, make_session_factory
 from gateway.models import ApiKey
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await engine.dispose()
 
     app = FastAPI(title="llm-gateway-lab", lifespan=lifespan)
+    app.include_router(admin.create_router(settings))
 
     async def authenticate(request: Request) -> ApiKey | None:
         key = extract_key(request.headers)
@@ -83,6 +85,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             record,
             request.app.state.prices,
             store_content=settings.store_content,
+            budget_config=recorder.BudgetConfig(
+                settings.default_session_budget_usd,
+                settings.alert_thresholds,
+                settings.allow_client_budgets,
+            ),
         )
 
     @app.get("/health")

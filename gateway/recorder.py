@@ -1,17 +1,27 @@
-"""Turns one proxied call into a `requests` row (plus `request_contents` if enabled)."""
+"""Turns one proxied call into a `requests` row (plus `request_contents` if enabled), then
+checks the session's budgets."""
 
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from gateway import budgets
 from gateway.models import RequestContent, RequestLog
 from gateway.pricing import PriceTable, Usage
 from gateway.request_meta import RequestMeta
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class BudgetConfig:
+    default_budget_usd: Decimal = Decimal("5.00")
+    alert_thresholds: list[Decimal] = field(default_factory=lambda: [Decimal("0.8"), Decimal("1")])
+    allow_client_budgets: bool = True
 
 
 @dataclass
@@ -75,6 +85,8 @@ def build_row(record: CallRecord, prices: PriceTable) -> RequestLog:
         row.cache_write_5m_tokens = usage.cache_write_5m_tokens
         row.cache_write_1h_tokens = usage.cache_write_1h_tokens
         row.service_tier = usage_json.get("service_tier")
+        row.context_tokens = usage.prompt_tokens + usage.output_tokens
+        row.context_window = prices.context_window(model)
         row.cost_usd = cost.cost_usd
         row.cost_note = "; ".join(n for n in (record.usage_note, cost.note) if n) or None
         if cost.cost_usd is None:
@@ -88,8 +100,11 @@ async def save(
     prices: PriceTable,
     *,
     store_content: bool,
+    budget_config: BudgetConfig | None = None,
 ) -> uuid.UUID | None:
-    """Write the row. Never raises: a logging failure must not fail the client's call."""
+    """Write the row, then check budgets. Never raises: a logging failure must not fail
+    the client's call."""
+    budget_config = budget_config or BudgetConfig()
     try:
         row = build_row(record, prices)
         async with session_factory() as session:
@@ -106,7 +121,29 @@ async def save(
                     )
                 )
             await session.commit()
-        return row.id
     except Exception:
         logger.exception("failed to record call to %s", record.path)
         return None
+
+    # Budgets run in a second transaction, after the request row is committed, so nothing
+    # here (a failed budget write or alert check) can lose the record of the call.
+    try:
+        async with session_factory() as session:
+            if record.meta.budget_usd is not None and budget_config.allow_client_budgets:
+                await budgets.set_budget(
+                    session,
+                    record.api_key_id,
+                    record.meta.session_id,
+                    record.meta.budget_usd,
+                    "header",
+                )
+            await budgets.check_after_call(
+                session,
+                row,
+                default_budget=budget_config.default_budget_usd,
+                thresholds=budget_config.alert_thresholds,
+            )
+            await session.commit()
+    except Exception:
+        logger.exception("failed to check budgets for session %s", row.session_id)
+    return row.id
