@@ -10,21 +10,33 @@ A session is identified by (gateway key, session ID), so session URLs name the k
     GET /admin/keys/{key_id}/sessions/{session_id}          spend, budget, and alerts
     PUT /admin/keys/{key_id}/sessions/{session_id}/budget   set a budget (overrides header)
     POST /admin/keys/{key_id}/sessions/{session_id}/categorize  categorize it now
+    GET /admin/keys/{key_id}/sessions/{session_id}/calls    every call, oldest first
     GET /admin/alerts?key_id=&session_id=&limit=            recent alerts, newest first
+
+Dashboard stats (all take ?from=&to= as ISO datetimes, default the last 7 days, and an
+optional ?key_id= to show one user):
+
+    GET /admin/stats/overview?bucket=hour|day   totals, percentiles, time series, by model
+    GET /admin/stats/categories                 spend and calls by session category
+    GET /admin/stats/users                      spend and calls by gateway key
+    GET /admin/sessions?category=&sort=recent|spend&limit=&offset=   sessions list
+
+Money is returned as decimal strings (exact), times as ISO 8601 UTC.
 """
 
 import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gateway import budgets, categorizer
+from gateway import budgets, categorizer, stats
 from gateway.auth import extract_key
 from gateway.models import Alert, ApiKey, SessionCategory
 from gateway.settings import Settings
@@ -81,6 +93,39 @@ class SessionOut(BaseModel):
     spend_fraction: Decimal
     category: CategoryOut | None
     alerts: list[AlertOut]
+
+
+def to_json(value: Any) -> Any:
+    """Make stats results JSON-safe: exact decimal strings for money, ISO UTC times."""
+    if isinstance(value, dict):
+        return {k: to_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [to_json(v) for v in value]
+    if isinstance(value, Decimal):
+        return format(value.normalize(), "f") if value else "0"
+    if isinstance(value, datetime):
+        value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+        return value.isoformat().replace("+00:00", "Z")
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    return value
+
+
+MAX_HOURLY_RANGE = timedelta(days=14)
+
+
+def window_from(
+    from_: Annotated[datetime | None, Query(alias="from")] = None,
+    to: datetime | None = None,
+    key_id: uuid.UUID | None = None,
+) -> stats.Window:
+    end = to or datetime.now(UTC)
+    start = from_ or end - timedelta(days=7)
+    end = end.replace(tzinfo=UTC) if end.tzinfo is None else end
+    start = start.replace(tzinfo=UTC) if start.tzinfo is None else start
+    if start >= end:
+        raise HTTPException(422, "`from` must be before `to`")
+    return stats.Window(start, end, key_id)
 
 
 class BudgetIn(BaseModel):
@@ -172,6 +217,60 @@ def create_router(settings: Settings) -> APIRouter:
             categorizer.SessionRef(key_id, session_id),
         )
         return await session_out(request, key_id, session_id)
+
+    @router.get("/stats/overview")
+    async def overview(
+        request: Request,
+        window: Annotated[stats.Window, Depends(window_from)],
+        bucket: Literal["hour", "day"] | None = None,
+    ) -> JSONResponse:
+        span = window.end - window.start
+        bucket = bucket or ("hour" if span <= timedelta(days=2) else "day")
+        if bucket == "hour" and span > MAX_HOURLY_RANGE:
+            raise HTTPException(422, "hourly buckets are limited to 14 days")
+        async with request.app.state.session_factory() as session:
+            return JSONResponse(to_json(await stats.overview(session, window, bucket)))
+
+    @router.get("/stats/categories")
+    async def categories(
+        request: Request, window: Annotated[stats.Window, Depends(window_from)]
+    ) -> JSONResponse:
+        async with request.app.state.session_factory() as session:
+            return JSONResponse(to_json(await stats.by_category(session, window)))
+
+    @router.get("/stats/users")
+    async def users(
+        request: Request, window: Annotated[stats.Window, Depends(window_from)]
+    ) -> JSONResponse:
+        async with request.app.state.session_factory() as session:
+            return JSONResponse(to_json(await stats.by_key(session, window)))
+
+    @router.get("/sessions")
+    async def sessions(
+        request: Request,
+        window: Annotated[stats.Window, Depends(window_from)],
+        category: str | None = None,
+        sort: Literal["recent", "spend"] = "recent",
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> JSONResponse:
+        async with request.app.state.session_factory() as session:
+            result = await stats.sessions_list(
+                session,
+                window,
+                default_budget=settings.default_session_budget_usd,
+                category=category,
+                sort=sort,
+                limit=limit,
+                offset=offset,
+            )
+            return JSONResponse(to_json(result))
+
+    @router.get("/keys/{key_id}/sessions/{session_id}/calls")
+    async def calls(request: Request, key_id: uuid.UUID, session_id: str) -> JSONResponse:
+        async with request.app.state.session_factory() as session:
+            await get_key(session, key_id)
+            return JSONResponse(to_json(await stats.session_calls(session, key_id, session_id)))
 
     @router.get("/alerts")
     async def list_alerts(

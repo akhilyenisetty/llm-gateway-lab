@@ -1,9 +1,18 @@
-"""Shared fixtures: a real gateway app on a temp SQLite DB, with Anthropic mocked by respx.
+"""Shared fixtures: a real gateway app on a fresh database, with Anthropic mocked by respx.
+
+The database is a temp SQLite file by default. Set TEST_DATABASE_URL to run the same tests
+against Postgres (which is what production uses, and which SQLite doesn't fully imitate:
+foreign keys, concurrency, percentile and date functions):
+
+    TEST_DATABASE_URL=postgresql+asyncpg://gateway:gateway@localhost:5432/gateway_test pytest
+
+That database is wiped and recreated for every test, so never point it at real data.
 
 respx intercepts the gateway's outgoing httpx calls, so tests need no API key or network.
 Clients reach the gateway in-process through an ASGI transport (no real sockets).
 """
 
+import os
 import uuid
 from collections.abc import AsyncIterator
 from decimal import Decimal
@@ -27,6 +36,9 @@ from gateway.settings import Settings
 UPSTREAM = "https://api.anthropic.test"
 REAL_KEY = "fake-upstream-key-for-tests"
 ADMIN_KEY = "test-admin-key"
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+if TEST_DATABASE_URL and not TEST_DATABASE_URL.rstrip("/").endswith("_test"):
+    raise RuntimeError("TEST_DATABASE_URL must name a database ending in _test (it is wiped)")
 GATEWAY_URL = "http://gateway.test"
 
 
@@ -90,7 +102,7 @@ def settings(
     return Settings(
         anthropic_api_key=REAL_KEY,
         anthropic_base_url=UPSTREAM,
-        database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
+        database_url=TEST_DATABASE_URL or f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
         store_content=store_content,
         default_session_budget_usd=default_budget,
         admin_api_key=admin_key,
@@ -103,6 +115,7 @@ def settings(
 async def app(settings: Settings) -> AsyncIterator[FastAPI]:
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)  # a fresh schema for every test
         await conn.run_sync(Base.metadata.create_all)
     await engine.dispose()
 
