@@ -25,3 +25,6 @@ results/
 
 # Local AI assistant instructions (kept out of the public repo)
 CLAUDE.md
+
+# Real conversations exported for labeling stay private
+evals/data/real/

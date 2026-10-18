@@ -1,0 +1,172 @@
+{"id": "syn-writing-03", "label": "writing", "labeled_at": "2026-10-18T01:26:13+00:00", "categories_version": 1}
+{"id": "syn-coding-04", "label": "coding", "labeled_at": "2026-10-18T01:26:26+00:00", "categories_version": 1}
+{"id": "syn-writing-04", "label": "writing", "labeled_at": "2026-10-18T01:27:08+00:00", "categories_version": 1}
+{"id": "syn-other-06", "label": "coding", "labeled_at": "2026-10-18T01:27:27+00:00", "categories_version": 1}
+{"id": "syn-question_answering-03", "label": "question_answering", "labeled_at": "2026-10-18T01:27:37+00:00", "categories_version": 1}
+{"id": "syn-analysis-05", "label": "analysis", "labeled_at": "2026-10-18T01:27:53+00:00", "categories_version": 1}
+{"id": "syn-question_answering-07", "label": "question_answering", "labeled_at": "2026-10-18T01:28:11+00:00", "categories_version": 1}
+{"id": "syn-other-05", "label": "other", "labeled_at": "2026-10-18T01:28:32+00:00", "categories_version": 1}
+{"id": "syn-coding-05", "label": "analysis", "labeled_at": "2026-10-18T01:28:42+00:00", "categories_version": 1}
+{"id": "syn-mixed-06", "label": "question_answering", "labeled_at": "2026-10-18T01:29:22+00:00", "categories_version": 1}
+{"id": "syn-other-02", "label": "other", "labeled_at": "2026-10-18T01:29:37+00:00", "categories_version": 1}
+{"id": "syn-writing-05", "label": "writing", "labeled_at": "2026-10-18T01:29:57+00:00", "categories_version": 1}
+{"id": "syn-mixed-02", "label": "writing", "labeled_at": "2026-10-18T01:30:20+00:00", "categories_version": 1}
+{"id": "syn-other-01", "label": "other", "labeled_at": "2026-10-18T01:30:27+00:00", "categories_version": 1}
+{"id": "syn-writing-06", "label": "writing", "labeled_at": "2026-10-18T01:30:41+00:00", "categories_version": 1}
+{"id": "syn-other-04", "label": "other", "labeled_at": "2026-10-18T01:30:57+00:00", "categories_version": 1}
+{"id": "syn-question_answering-01", "label": "question_answering", "labeled_at": "2026-10-18T01:31:10+00:00", "categories_version": 1}
+{"id": "syn-question_answering-02", "label": "question_answering", "labeled_at": "2026-10-18T01:31:25+00:00", "categories_version": 1}
+{"id": "syn-mixed-05", "label": "analysis", "labeled_at": "2026-10-18T01:31:37+00:00", "categories_version": 1}
+{"id": "syn-writing-07", "label": "writing", "labeled_at": "2026-10-18T01:32:07+00:00", "categories_version": 1}
+{"id": "syn-other-03", "label": "other", "labeled_at": "2026-10-18T01:32:16+00:00", "categories_version": 1}
+{"id": "syn-analysis-07", "label": "analysis", "labeled_at": "2026-10-18T01:32:28+00:00", "categories_version": 1}
+{"id": "syn-mixed-01", "label": "analysis", "labeled_at": "2026-10-18T01:32:39+00:00", "categories_version": 1}
+{"id": "syn-question_answering-04", "label": "question_answering", "labeled_at": "2026-10-18T01:32:50+00:00", "categories_version": 1}
+{"id": "syn-mixed-03", "label": "coding", "labeled_at": "2026-10-18T01:33:03+00:00", "categories_version": 1}
+{"id": "syn-analysis-06", "label": "analysis", "labeled_at": "2026-10-18T01:33:11+00:00", "categories_version": 1}
+{"id": "syn-analysis-03", "label": "coding", "labeled_at": "2026-10-18T01:33:23+00:00", "categories_version": 1}
+{"id": "syn-question_answering-06", "label": "question_answering", "labeled_at": "2026-10-18T01:33:40+00:00", "categories_version": 1}
+{"id": "syn-mixed-08", "label": "coding", "labeled_at": "2026-10-18T01:33:54+00:00", "categories_version": 1}
+{"id": "syn-mixed-04", "label": "other", "labeled_at": "2026-10-18T01:33:58+00:00", "categories_version": 1}
+{"id": "syn-coding-01", "label": "coding", "labeled_at": "2026-10-18T01:34:05+00:00", "categories_version": 1}
+{"id": "syn-coding-03", "label": "coding", "labeled_at": "2026-10-18T01:34:16+00:00", "categories_version": 1}
+{"id": "syn-other-07", "label": "other", "labeled_at": "2026-10-18T01:34:24+00:00", "categories_version": 1}
+{"id": "syn-coding-06", "label": "coding", "labeled_at": "2026-10-18T01:35:00+00:00", "categories_version": 1}
+{"id": "syn-mixed-07", "label": "other", "labeled_at": "2026-10-18T01:35:06+00:00", "categories_version": 1}
+{"id": "syn-coding-07", "label": "coding", "labeled_at": "2026-10-18T01:35:25+00:00", "categories_version": 1}
+{"id": "syn-writing-02", "label": "writing", "labeled_at": "2026-10-18T01:35:32+00:00", "categories_version": 1}
+{"id": "syn-analysis-01", "label": "analysis", "labeled_at": "2026-10-18T01:35:40+00:00", "categories_version": 1}
+{"id": "syn-analysis-02", "label": "analysis", "labeled_at": "2026-10-18T01:35:54+00:00", "categories_version": 1}
+{"id": "syn-analysis-04", "label": "analysis", "labeled_at": "2026-10-18T01:36:05+00:00", "categories_version": 1}
+{"id": "syn-coding-02", "label": "coding", "labeled_at": "2026-10-18T01:36:19+00:00", "categories_version": 1}
+{"id": "syn-writing-01", "label": "writing", "labeled_at": "2026-10-18T01:36:26+00:00", "categories_version": 1}
+{"id": "syn-question_answering-05", "label": "other", "labeled_at": "2026-10-18T01:36:37+00:00", "categories_version": 1}
+{"id": "syn-writing-03", "label": "writing", "labeled_at": "2026-10-18T01:26:13+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-04", "label": "coding", "labeled_at": "2026-10-18T01:26:26+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-04", "label": "writing", "labeled_at": "2026-10-18T01:27:08+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-06", "label": "coding", "labeled_at": "2026-10-18T01:27:27+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-03", "label": "question_answering", "labeled_at": "2026-10-18T01:27:37+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-05", "label": "analysis", "labeled_at": "2026-10-18T01:27:53+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-07", "label": "question_answering", "labeled_at": "2026-10-18T01:28:11+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-05", "label": "other", "labeled_at": "2026-10-18T01:28:32+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-05", "label": "analysis", "labeled_at": "2026-10-18T01:28:42+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-06", "label": "question_answering", "labeled_at": "2026-10-18T01:29:22+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-02", "label": "other", "labeled_at": "2026-10-18T01:29:37+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-05", "label": "writing", "labeled_at": "2026-10-18T01:29:57+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-02", "label": "writing", "labeled_at": "2026-10-18T01:30:20+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-01", "label": "other", "labeled_at": "2026-10-18T01:30:27+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-06", "label": "writing", "labeled_at": "2026-10-18T01:30:41+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-04", "label": "other", "labeled_at": "2026-10-18T01:30:57+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-01", "label": "question_answering", "labeled_at": "2026-10-18T01:31:10+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-02", "label": "question_answering", "labeled_at": "2026-10-18T01:31:25+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-05", "label": "analysis", "labeled_at": "2026-10-18T01:31:37+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-07", "label": "writing", "labeled_at": "2026-10-18T01:32:07+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-03", "label": "other", "labeled_at": "2026-10-18T01:32:16+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-07", "label": "analysis", "labeled_at": "2026-10-18T01:32:28+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-01", "label": "analysis", "labeled_at": "2026-10-18T01:32:39+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-04", "label": "question_answering", "labeled_at": "2026-10-18T01:32:50+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-03", "label": "coding", "labeled_at": "2026-10-18T01:33:03+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-06", "label": "analysis", "labeled_at": "2026-10-18T01:33:11+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-03", "label": "coding", "labeled_at": "2026-10-18T01:33:23+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-06", "label": "question_answering", "labeled_at": "2026-10-18T01:33:40+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-08", "label": "coding", "labeled_at": "2026-10-18T01:33:54+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-04", "label": "other", "labeled_at": "2026-10-18T01:33:58+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-01", "label": "coding", "labeled_at": "2026-10-18T01:34:05+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-03", "label": "coding", "labeled_at": "2026-10-18T01:34:16+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-other-07", "label": "other", "labeled_at": "2026-10-18T01:34:24+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-06", "label": "coding", "labeled_at": "2026-10-18T01:35:00+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-mixed-07", "label": "other", "labeled_at": "2026-10-18T01:35:06+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-07", "label": "coding", "labeled_at": "2026-10-18T01:35:25+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-02", "label": "writing", "labeled_at": "2026-10-18T01:35:32+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-01", "label": "analysis", "labeled_at": "2026-10-18T01:35:40+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-02", "label": "analysis", "labeled_at": "2026-10-18T01:35:54+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-analysis-04", "label": "analysis", "labeled_at": "2026-10-18T01:36:05+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-coding-02", "label": "coding", "labeled_at": "2026-10-18T01:36:19+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-01", "label": "writing", "labeled_at": "2026-10-18T01:36:26+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-question_answering-05", "label": "other", "labeled_at": "2026-10-18T01:36:37+00:00", "categories_version": 2, "copied_from_version": 1}
+{"id": "syn-writing-03", "label": "coding", "labeled_at": "2026-10-18T02:02:50+00:00", "categories_version": 2}
+{"id": "syn-other-06", "label": "coding", "labeled_at": "2026-10-18T02:03:03+00:00", "categories_version": 2}
+{"id": "syn-writing-01", "label": "writing", "labeled_at": "2026-10-18T02:03:14+00:00", "categories_version": 2}
+{"id": "syn-other-04", "label": "other", "labeled_at": "2026-10-18T02:03:24+00:00", "categories_version": 2}
+{"id": "syn-question_answering-03", "label": "question_answering", "labeled_at": "2026-10-18T02:03:34+00:00", "categories_version": 2}
+{"id": "syn-question_answering-07", "label": "other", "labeled_at": "2026-10-18T02:03:43+00:00", "categories_version": 2}
+{"id": "syn-analysis-06", "label": "analysis", "labeled_at": "2026-10-18T02:03:52+00:00", "categories_version": 2}
+{"id": "syn-coding-04", "label": "coding", "labeled_at": "2026-10-18T02:04:08+00:00", "categories_version": 2}
+{"id": "syn-coding-07", "label": "coding", "labeled_at": "2026-10-18T02:04:40+00:00", "categories_version": 2}
+{"id": "syn-question_answering-05", "label": "other", "labeled_at": "2026-10-18T02:04:47+00:00", "categories_version": 2}
+{"id": "syn-other-05", "label": "other", "labeled_at": "2026-10-18T02:05:17+00:00", "categories_version": 2}
+{"id": "syn-writing-07", "label": "writing", "labeled_at": "2026-10-18T02:05:35+00:00", "categories_version": 2}
+{"id": "syn-analysis-02", "label": "analysis", "labeled_at": "2026-10-18T02:05:43+00:00", "categories_version": 2}
+{"id": "syn-other-07", "label": "other", "labeled_at": "2026-10-18T02:05:56+00:00", "categories_version": 2}
+{"id": "syn-mixed-04", "label": "other", "labeled_at": "2026-10-18T02:06:04+00:00", "categories_version": 2}
+{"id": "syn-analysis-05", "label": "analysis", "labeled_at": "2026-10-18T02:06:18+00:00", "categories_version": 2}
+{"id": "syn-mixed-06", "label": "question_answering", "labeled_at": "2026-10-18T02:06:33+00:00", "categories_version": 2}
+{"id": "syn-question_answering-04", "label": "analysis", "labeled_at": "2026-10-18T02:06:57+00:00", "categories_version": 2}
+{"id": "syn-writing-06", "label": "writing", "labeled_at": "2026-10-18T02:07:09+00:00", "categories_version": 2}
+{"id": "syn-other-01", "label": "other", "labeled_at": "2026-10-18T02:07:13+00:00", "categories_version": 2}
+{"id": "syn-other-03", "label": "other", "labeled_at": "2026-10-18T02:07:17+00:00", "categories_version": 2}
+{"id": "syn-question_answering-02", "label": "other", "labeled_at": "2026-10-18T02:07:40+00:00", "categories_version": 2}
+{"id": "syn-analysis-07", "label": "analysis", "labeled_at": "2026-10-18T02:07:53+00:00", "categories_version": 2}
+{"id": "syn-mixed-08", "label": "coding", "labeled_at": "2026-10-18T02:08:11+00:00", "categories_version": 2}
+{"id": "syn-mixed-01", "label": "question_answering", "labeled_at": "2026-10-18T02:08:23+00:00", "categories_version": 2}
+{"id": "syn-writing-02", "label": "writing", "labeled_at": "2026-10-18T02:08:29+00:00", "categories_version": 2}
+{"id": "syn-mixed-02", "label": "analysis", "labeled_at": "2026-10-18T02:12:54+00:00", "categories_version": 2}
+{"id": "syn-analysis-03", "label": "analysis", "labeled_at": "2026-10-18T02:13:01+00:00", "categories_version": 2}
+{"id": "syn-coding-02", "label": "coding", "labeled_at": "2026-10-18T02:13:15+00:00", "categories_version": 2}
+{"id": "syn-coding-05", "label": "question_answering", "labeled_at": "2026-10-18T02:13:43+00:00", "categories_version": 2}
+{"id": "syn-other-02", "label": "other", "labeled_at": "2026-10-18T02:13:46+00:00", "categories_version": 2}
+{"id": "syn-coding-03", "label": "coding", "labeled_at": "2026-10-18T02:13:54+00:00", "categories_version": 2}
+{"id": "syn-coding-01", "label": "coding", "labeled_at": "2026-10-18T02:14:06+00:00", "categories_version": 2}
+{"id": "syn-question_answering-01", "label": "other", "labeled_at": "2026-10-18T02:14:10+00:00", "categories_version": 2}
+{"id": "syn-mixed-07", "label": "other", "labeled_at": "2026-10-18T02:14:13+00:00", "categories_version": 2}
+{"id": "syn-mixed-03", "label": "coding", "labeled_at": "2026-10-18T02:14:53+00:00", "categories_version": 2}
+{"id": "syn-analysis-01", "label": "analysis", "labeled_at": "2026-10-18T02:15:06+00:00", "categories_version": 2}
+{"id": "syn-writing-04", "label": "writing", "labeled_at": "2026-10-18T02:15:11+00:00", "categories_version": 2}
+{"id": "syn-writing-05", "label": "writing", "labeled_at": "2026-10-18T02:15:31+00:00", "categories_version": 2}
+{"id": "syn-mixed-05", "label": "analysis", "labeled_at": "2026-10-18T02:15:37+00:00", "categories_version": 2}
+{"id": "syn-coding-06", "label": "coding", "labeled_at": "2026-10-18T02:15:47+00:00", "categories_version": 2}
+{"id": "syn-question_answering-06", "label": "other", "labeled_at": "2026-10-18T02:15:51+00:00", "categories_version": 2}
+{"id": "syn-analysis-04", "label": "analysis", "labeled_at": "2026-10-18T02:15:56+00:00", "categories_version": 2}
+{"id": "syn-writing-03", "label": "coding", "labeled_at": "2026-10-18T02:02:50+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-04", "label": "coding", "labeled_at": "2026-10-18T02:04:08+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-04", "label": "writing", "labeled_at": "2026-10-18T02:15:11+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-06", "label": "coding", "labeled_at": "2026-10-18T02:03:03+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-03", "label": "question_answering", "labeled_at": "2026-10-18T02:03:34+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-05", "label": "analysis", "labeled_at": "2026-10-18T02:06:18+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-07", "label": "other", "labeled_at": "2026-10-18T02:03:43+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-05", "label": "other", "labeled_at": "2026-10-18T02:05:17+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-05", "label": "question_answering", "labeled_at": "2026-10-18T02:13:43+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-06", "label": "question_answering", "labeled_at": "2026-10-18T02:06:33+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-02", "label": "other", "labeled_at": "2026-10-18T02:13:46+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-05", "label": "writing", "labeled_at": "2026-10-18T02:15:31+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-02", "label": "analysis", "labeled_at": "2026-10-18T02:12:54+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-01", "label": "other", "labeled_at": "2026-10-18T02:07:13+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-06", "label": "writing", "labeled_at": "2026-10-18T02:07:09+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-04", "label": "other", "labeled_at": "2026-10-18T02:03:24+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-01", "label": "other", "labeled_at": "2026-10-18T02:14:10+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-02", "label": "other", "labeled_at": "2026-10-18T02:07:40+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-05", "label": "analysis", "labeled_at": "2026-10-18T02:15:37+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-07", "label": "writing", "labeled_at": "2026-10-18T02:05:35+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-03", "label": "other", "labeled_at": "2026-10-18T02:07:17+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-07", "label": "analysis", "labeled_at": "2026-10-18T02:07:53+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-01", "label": "question_answering", "labeled_at": "2026-10-18T02:08:23+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-04", "label": "analysis", "labeled_at": "2026-10-18T02:06:57+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-03", "label": "coding", "labeled_at": "2026-10-18T02:14:53+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-06", "label": "analysis", "labeled_at": "2026-10-18T02:03:52+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-03", "label": "analysis", "labeled_at": "2026-10-18T02:13:01+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-06", "label": "other", "labeled_at": "2026-10-18T02:15:51+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-08", "label": "coding", "labeled_at": "2026-10-18T02:08:11+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-04", "label": "other", "labeled_at": "2026-10-18T02:06:04+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-01", "label": "coding", "labeled_at": "2026-10-18T02:14:06+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-03", "label": "coding", "labeled_at": "2026-10-18T02:13:54+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-other-07", "label": "other", "labeled_at": "2026-10-18T02:05:56+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-06", "label": "coding", "labeled_at": "2026-10-18T02:15:47+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-mixed-07", "label": "other", "labeled_at": "2026-10-18T02:14:13+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-07", "label": "coding", "labeled_at": "2026-10-18T02:04:40+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-02", "label": "writing", "labeled_at": "2026-10-18T02:08:29+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-01", "label": "analysis", "labeled_at": "2026-10-18T02:15:06+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-02", "label": "analysis", "labeled_at": "2026-10-18T02:05:43+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-analysis-04", "label": "analysis", "labeled_at": "2026-10-18T02:15:56+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-coding-02", "label": "coding", "labeled_at": "2026-10-18T02:13:15+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-writing-01", "label": "writing", "labeled_at": "2026-10-18T02:03:14+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
+{"id": "syn-question_answering-05", "label": "other", "labeled_at": "2026-10-18T02:04:47+00:00", "categories_version": 3, "copied_from_version": 2, "copy_reason": "v3 only narrowed question_answering to match these labels"}
