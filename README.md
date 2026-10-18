@@ -4,8 +4,8 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-4 (gateway core, streaming, budgets and alerts, categories). The
-dashboard and context handoff are planned next.
+**Status:** Stages 1-5 (gateway core, streaming, budgets and alerts, categories, ops
+dashboard). Context handoff is planned next.
 
 ## How it works
 
@@ -128,7 +128,11 @@ It is separate from client gateway keys, so a client can't raise its own budget.
 | `GET /admin/keys/{key_id}/sessions/{session_id}` | Spend, budget (and its source), spend fraction, alerts |
 | `PUT /admin/keys/{key_id}/sessions/{session_id}/budget` | Set a budget: `{"budget_usd": "2.50"}` |
 | `POST /admin/keys/{key_id}/sessions/{session_id}/categorize` | Categorize the session now |
+| `GET /admin/keys/{key_id}/sessions/{session_id}/calls` | Every call in the session, oldest first |
 | `GET /admin/alerts?key_id=&session_id=&limit=` | Recent alerts, newest first |
+| `GET /admin/stats/overview?from=&to=&key_id=&bucket=` | Totals, percentiles, time series, by model |
+| `GET /admin/stats/categories`, `/admin/stats/users` | Spend and calls by category, by gateway key |
+| `GET /admin/sessions?category=&sort=&limit=&offset=` | Sessions with budget, category, peak context |
 
 ### Categories
 
@@ -204,6 +208,37 @@ subscription.
 
 Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revoke <prefix>`.
 
+## Dashboard
+
+A React app (`dashboard/`, Vite + TypeScript, TanStack Query, Recharts) over the admin
+API:
+
+| Page | Shows |
+|---|---|
+| Overview | spend and calls over time, error rate, p50/p95 latency and time to first token, spend by model |
+| Categories | spend, sessions, and calls by session category |
+| Users | spend, calls, sessions, and errors per gateway key |
+| Sessions | every session with a budget meter, category, peak context use, and alerts; filter by user and category |
+| Session detail | context use per call, every call's tokens, cost, latency, and status; set the budget or categorize now |
+| Alerts | budget and context alerts, linked to their sessions |
+
+Filters (time range, user) live in the URL, so a view can be bookmarked or shared. Pages
+refresh every 30 seconds. Sign in with the gateway's `ADMIN_API_KEY`; it is kept in
+`sessionStorage` (this tab only).
+
+```bash
+cd dashboard
+npx npm@11 install        # npm 10.x has a dependency-resolver bug with this project
+npm run dev               # http://localhost:5173, forwards /admin to the gateway on :8000
+npm test && npm run typecheck && npm run lint
+```
+
+`GATEWAY_URL=http://host:port npm run dev` points the dev server at another gateway.
+
+Stats definitions: an error is an HTTP status >= 400 or a failure during a stream (a
+client disconnecting is not an error); latency is time to the last byte; percentiles use
+linear interpolation (Postgres `percentile_cont`); time buckets are UTC.
+
 ## Evaluating the classifier
 
 ```bash
@@ -222,4 +257,11 @@ Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revok
 
 Tests run without an API key or network: Anthropic is mocked with `respx`, the database
 is a temporary SQLite file, and the main test drives the real Anthropic SDK through the
-gateway in-process.
+gateway in-process. To run the same tests against Postgres (production's database, which
+SQLite doesn't fully imitate), point `TEST_DATABASE_URL` at a database whose name ends in
+`_test`; it is wiped for every test:
+
+```bash
+docker compose exec postgres createdb -U gateway gateway_test
+TEST_DATABASE_URL=postgresql+asyncpg://gateway:gateway@localhost:5432/gateway_test .venv/bin/pytest
+```
