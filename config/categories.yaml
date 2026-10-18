@@ -1,0 +1,41 @@
+# Fixed session categories. The automatic classifier must pick exactly one of these, and
+# the hand-labeling tool shows the same definitions, so people and the model label against
+# the same rules. Changing names or definitions changes what the eval measures: bump
+# `version`, relabel every session, and re-run the eval.
+#
+# v2 (2026-10-18): boundary rules made explicit after the v1 eval showed labels and
+# definitions disagreeing on investigation-without-changes, question-then-example,
+# personal advice, and mixed sessions (see docs/EVALUATION.md).
+# v3 (2026-10-18): question_answering narrowed to technical and work questions; general
+# knowledge questions (science trivia, history) are other.
+
+version: 3
+
+categories:
+  coding:
+    Writing, changing, fixing, reviewing, testing, or running software, including
+    configuring tools and infrastructure as code. The deliverable is code changes or a
+    working system. Investigating a system without changing it is analysis, and a short
+    example that only illustrates an answer is question_answering.
+  writing:
+    Producing prose for people to read, such as documentation, READMEs, emails, posts,
+    reports, or editing existing text. The deliverable is text, not code.
+  analysis:
+    Examining data, documents, logs, or code to produce findings, such as summaries,
+    comparisons, metrics, root causes, or an explanation of how a system behaves, without
+    changing anything. Reading logs to find why errors spiked is analysis.
+  question_answering:
+    Asking for explanations, facts, or how something works on technical or work topics
+    (software, tools, data, engineering, professional practice), including when a short
+    example is requested to illustrate the answer. General knowledge questions and
+    personal advice are other.
+  other:
+    Anything that fits none of the above, such as general knowledge questions (science
+    trivia, history), personal advice (health, money, home, life decisions), casual chat,
+    games, or sessions with too little content to tell.
+
+# How to decide when a session mixes several kinds of work.
+tie_breaker:
+  Choose the category where most of the session's work went. A brief final request of
+  another kind, such as a short paragraph summing up an analysis, does not change the
+  category.
