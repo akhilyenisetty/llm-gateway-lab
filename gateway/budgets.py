@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +58,9 @@ class BudgetStatus:
     api_key_id: uuid.UUID
     session_id: str
     spent_usd: Decimal
+    # The part of spent_usd from calls on the client's own credential: API-equivalent
+    # cost, not money the gateway paid (budgets count it as a usage signal).
+    api_equivalent_usd: Decimal
     budget_usd: Decimal
     budget_source: str  # "default" | "header" | "admin"
     calls: int
@@ -109,11 +112,18 @@ async def set_budget(
 async def budget_status(
     session: AsyncSession, api_key_id: uuid.UUID, session_id: str, default_budget: Decimal
 ) -> BudgetStatus:
-    spent, calls = (
+    spent, api_equivalent, calls = (
         await session.execute(
-            select(func.coalesce(func.sum(RequestLog.cost_usd), 0), func.count()).where(
-                RequestLog.api_key_id == api_key_id, RequestLog.session_id == session_id
-            )
+            select(
+                func.coalesce(func.sum(RequestLog.cost_usd), 0),
+                func.coalesce(
+                    func.sum(
+                        case((RequestLog.billing == "client_credential", RequestLog.cost_usd))
+                    ),
+                    0,
+                ),
+                func.count(),
+            ).where(RequestLog.api_key_id == api_key_id, RequestLog.session_id == session_id)
         )
     ).one()
     override = await session.get(SessionBudget, (api_key_id, session_id))
@@ -121,7 +131,15 @@ async def budget_status(
         budget, source = override.budget_usd, override.source
     else:
         budget, source = default_budget, "default"
-    return BudgetStatus(api_key_id, session_id, Decimal(spent), Decimal(budget), source, calls)
+    return BudgetStatus(
+        api_key_id,
+        session_id,
+        Decimal(spent),
+        Decimal(api_equivalent),
+        Decimal(budget),
+        source,
+        calls,
+    )
 
 
 async def _record_alert(
@@ -194,6 +212,11 @@ async def check_spend(
                 "spent_usd": usd(status.spent_usd),
                 "budget_usd": usd(status.budget_usd),
                 "budget_source": status.budget_source,
+                **(
+                    {"api_equivalent_usd": usd(status.api_equivalent_usd)}
+                    if status.api_equivalent_usd
+                    else {}
+                ),
             },
         ):
             fired.append(threshold)

@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # false the header is ignored and only the admin API sets per-session budgets.
     allow_client_budgets: bool = True
 
+    # Whether a client may send its own Anthropic credential (e.g. Claude Code on a
+    # claude.ai plan), identifying itself with X-Gateway-Key instead. The credential is
+    # forwarded unchanged and the gateway's own key is not used.
+    allow_client_credentials: bool = True
+
     # Bearer token for the /admin API. Empty disables the admin API.
     admin_api_key: SecretStr = SecretStr("")
 

@@ -98,6 +98,7 @@ class SessionOut(BaseModel):
     session_id: str
     calls: int
     spent_usd: Decimal
+    api_equivalent_usd: Decimal  # part of spent_usd on the client's own credential
     budget_usd: Decimal
     budget_source: str
     spend_fraction: Decimal
@@ -180,6 +181,7 @@ def create_router(settings: Settings) -> APIRouter:
                 session_id=session_id,
                 calls=status.calls,
                 spent_usd=status.spent_usd,
+                api_equivalent_usd=status.api_equivalent_usd,
                 budget_usd=status.budget_usd,
                 budget_source=status.budget_source,
                 spend_fraction=status.spend_fraction,

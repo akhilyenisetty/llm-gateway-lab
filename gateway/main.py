@@ -22,9 +22,10 @@ import httpx
 from fastapi import FastAPI, Request, Response
 
 from gateway import admin, categorizer, client_api, recorder
-from gateway.auth import authenticate_request
+from gateway.auth import KEY_PREFIX, Billing, extract_key, find_active_key, gateway_key_of
 from gateway.classifier import classifier_from_settings
 from gateway.db import make_engine, make_session_factory
+from gateway.models import ApiKey
 from gateway.pricing import PriceTable
 from gateway.proxy import anthropic_error, client_headers, upstream_headers
 from gateway.request_meta import read_meta
@@ -80,13 +81,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin.create_router(settings))
     app.include_router(client_api.create_router(settings))
 
-    authenticate = authenticate_request
-
-    def unauthorized() -> Response:
-        return anthropic_error(401, "authentication_error", "invalid or missing gateway key")
+    async def resolve_client(request: Request) -> tuple[ApiKey, Billing] | Response:
+        """Who the client is (its gateway key) and who pays for the call, or the error
+        response to send instead."""
+        key, billing = gateway_key_of(request.headers)
+        api_key = None
+        if key:
+            async with request.app.state.session_factory() as session:
+                api_key = await find_active_key(session, key)
+        if api_key is None:
+            return anthropic_error(401, "authentication_error", "invalid or missing gateway key")
+        if billing == "client_credential":
+            if not settings.allow_client_credentials:
+                return anthropic_error(
+                    403, "permission_error", "this gateway doesn't accept client credentials"
+                )
+            own = extract_key(request.headers)
+            if not own:
+                return anthropic_error(
+                    401,
+                    "authentication_error",
+                    "X-Gateway-Key identifies you to the gateway; also send your own "
+                    "Anthropic credential (e.g. a claude.ai login), which is forwarded",
+                )
+            if own.startswith(KEY_PREFIX):
+                # Forwarding it would hand a gateway key to Anthropic.
+                return anthropic_error(
+                    400,
+                    "invalid_request_error",
+                    "with X-Gateway-Key, send your own Anthropic credential, not a gateway key",
+                )
+        return api_key, billing
 
     async def forward(
-        request: Request, path: str, body: bytes, *, stream: bool = False
+        request: Request,
+        path: str,
+        body: bytes,
+        *,
+        billing: Billing,
+        stream: bool = False,
     ) -> httpx.Response:
         """Send the request upstream. With stream=True, returns once the status line and
         headers arrive; the body is read later (and the response must be closed)."""
@@ -97,7 +130,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             params=request.query_params,  # e.g. ?beta=true, sent by the SDK's beta client
             content=body,
             headers=upstream_headers(
-                request.headers, settings.anthropic_api_key.get_secret_value()
+                request.headers,
+                settings.anthropic_api_key.get_secret_value(),
+                forward_client_credential=billing == "client_credential",
             ),
         )
         return await client.send(upstream_request, stream=stream)
@@ -121,9 +156,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/v1/messages")
     async def messages(request: Request) -> Response:
-        api_key = await authenticate(request)
-        if api_key is None:
-            return unauthorized()
+        client = await resolve_client(request)
+        if isinstance(client, Response):
+            return client
+        api_key, billing = client
 
         raw = await request.body()
         try:
@@ -142,11 +178,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request_body=body,
             status_code=0,
             latency_ms=0,
+            billing=billing,
         )
 
         start = time.perf_counter()
         try:
-            upstream = await forward(request, "/v1/messages", raw, stream=is_stream)
+            upstream = await forward(
+                request, "/v1/messages", raw, billing=billing, stream=is_stream
+            )
         except httpx.TimeoutException:
             record.status_code, record.error_type = 504, "upstream_timeout"
             response: Response = anthropic_error(504, "api_error", "upstream request timed out")
@@ -192,10 +231,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.api_route("/v1/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def passthrough(request: Request, path: str) -> Response:
-        if await authenticate(request) is None:
-            return unauthorized()
+        client = await resolve_client(request)
+        if isinstance(client, Response):
+            return client
+        _, billing = client
         try:
-            upstream = await forward(request, f"/v1/{path}", await request.body())
+            upstream = await forward(request, f"/v1/{path}", await request.body(), billing=billing)
         except httpx.TimeoutException:
             return anthropic_error(504, "api_error", "upstream request timed out")
         except httpx.RequestError as exc:

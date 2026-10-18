@@ -69,6 +69,14 @@ class RequestLog(Base):
 
     path: Mapped[str] = mapped_column(String(200))
     model: Mapped[str | None] = mapped_column(String(100))
+    # Who paid: "gateway_key" (the gateway's own Anthropic key was used) or
+    # "client_credential" (the client's own credential was forwarded, e.g. Claude Code on a
+    # claude.ai plan). For client_credential calls, cost_usd is API-equivalent, not spend.
+    billing: Mapped[str] = mapped_column(String(20), server_default="gateway_key")
+    # Claude Code's request labels (sent with CLAUDE_CODE_GATEWAY_HINT_HEADERS=1):
+    # main | subagent | workflow | compaction | auxiliary, and the subagent's id.
+    request_class: Mapped[str | None] = mapped_column(String(20))
+    agent_id: Mapped[str | None] = mapped_column(String(100))
     is_stream: Mapped[bool] = mapped_column(default=False)
 
     # Outcome.

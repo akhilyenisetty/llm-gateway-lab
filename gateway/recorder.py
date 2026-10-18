@@ -38,6 +38,7 @@ class CallRecord:
     # upstream, and stream outcomes (mid-stream error, disconnects).
     error_type: str | None = None
     ttft_ms: int | None = None
+    billing: str = "gateway_key"
     # Why the recorded usage is incomplete, e.g. the client left before the stream ended.
     usage_note: str | None = None
 
@@ -73,6 +74,9 @@ def build_row(record: CallRecord, prices: PriceTable) -> RequestLog:
         upstream_request_id=record.upstream_request_id,
         latency_ms=record.latency_ms,
         ttft_ms=record.ttft_ms,
+        billing=record.billing,
+        request_class=record.meta.request_class,
+        agent_id=record.meta.agent_id,
         inference_geo=inference_geo,
         speed=speed,
     )

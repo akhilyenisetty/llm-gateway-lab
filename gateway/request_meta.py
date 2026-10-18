@@ -46,6 +46,9 @@ class RequestMeta:
     category: str | None
     app: str | None
     budget_usd: Decimal | None = None
+    # Claude Code's labels for the request (see models.RequestLog.request_class).
+    request_class: str | None = None
+    agent_id: str | None = None
 
 
 def _clean(value: str | None, max_len: int) -> str | None:
@@ -71,11 +74,15 @@ def read_meta(headers: Headers, api_key_id: uuid.UUID, body: dict[str, Any]) -> 
     app = _clean(headers.get("x-app"), MAX_TAG_LEN)
     category = _clean(headers.get("x-category"), MAX_TAG_LEN)
     budget = parse_budget(headers.get("x-session-budget-usd"))
+    hints = {
+        "request_class": _clean(headers.get("x-claude-code-request-class"), 20),
+        "agent_id": _clean(headers.get("x-claude-code-agent-id"), 100),
+    }
     if session_id := _clean(headers.get("x-session-id"), MAX_SESSION_ID_LEN):
-        return RequestMeta(session_id, "header", category, app, budget)
+        return RequestMeta(session_id, "header", category, app, budget, **hints)
     if session_id := _clean(headers.get("x-claude-code-session-id"), MAX_SESSION_ID_LEN):
         if app in (None, CLAUDE_CODE_BUILTIN_APP):
             app = "claude-code"
-        return RequestMeta(session_id, "claude-code", category, app, budget)
+        return RequestMeta(session_id, "claude-code", category, app, budget, **hints)
     session_id = derive_session_id(api_key_id, app, body)
-    return RequestMeta(session_id, "derived", category, app, budget)
+    return RequestMeta(session_id, "derived", category, app, budget, **hints)

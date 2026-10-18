@@ -10,6 +10,9 @@ Definitions used throughout:
   does. Postgres computes them in SQL; SQLite (used by the default test run) has no such
   function, so they're computed in Python with the same formula there.
 - Time buckets are UTC.
+- Spend includes calls made on the client's own credential (billing "client_credential",
+  e.g. Claude Code on a claude.ai plan); their cost is API-equivalent, not money the
+  gateway paid, and is also reported separately as `api_equivalent_usd`.
 """
 
 import uuid
@@ -111,6 +114,12 @@ async def _count_sessions(session: AsyncSession, where: list[Any]) -> int:
     return (await session.execute(select(func.count()).select_from(pairs.subquery()))).scalar_one()
 
 
+def _api_equivalent_column() -> Any:
+    return func.coalesce(
+        func.sum(case((RequestLog.billing == "client_credential", RequestLog.cost_usd))), 0
+    )
+
+
 def _totals_columns() -> list[Any]:
     return [
         func.count().label("calls"),
@@ -136,10 +145,11 @@ async def overview(session: AsyncSession, window: Window, bucket: Bucket) -> dic
                 ),
                 func.coalesce(func.sum(RequestLog.output_tokens), 0),
                 func.coalesce(func.sum(RequestLog.cache_read_tokens), 0),
+                _api_equivalent_column(),
             ).where(*where)
         )
     ).one()
-    calls, spend, errors, prompt_tokens, output_tokens, cache_read = totals
+    calls, spend, errors, prompt_tokens, output_tokens, cache_read, api_equivalent = totals
     sessions = await _count_sessions(session, where)
     latency = (await _percentiles(session, RequestLog.latency_ms, where)).get(None, (None, None))
     ttft = (await _percentiles(session, RequestLog.ttft_ms, where)).get(None, (None, None))
@@ -183,6 +193,7 @@ async def overview(session: AsyncSession, window: Window, bucket: Bucket) -> dic
         "calls": calls,
         "sessions": sessions,
         "spend_usd": Decimal(spend),
+        "api_equivalent_usd": Decimal(api_equivalent),
         "errors": errors,
         "error_rate": errors / calls if calls else None,
         "prompt_tokens": prompt_tokens,
@@ -304,6 +315,7 @@ async def sessions_list(
             RequestLog.session_id.label("session_id"),
             func.count().label("calls"),
             func.coalesce(func.sum(RequestLog.cost_usd), 0).label("spend_usd"),
+            _api_equivalent_column().label("api_equivalent_usd"),
             func.min(RequestLog.created_at).label("first_call_at"),
             func.max(RequestLog.app).label("app"),
             func.max(
@@ -328,10 +340,11 @@ async def sessions_list(
             active.c.last_call_at,
             whole.c.calls,
             whole.c.spend_usd,
+            whole.c.api_equivalent_usd,
             whole.c.first_call_at,
             whole.c.app,
             whole.c.peak_context,
-            effective_category,
+            effective_category.label("category"),
             SessionCategory.status,
             ApiKey.name,
             ApiKey.key_prefix,
@@ -385,13 +398,14 @@ async def sessions_list(
                 "key_prefix": r.key_prefix,
                 "session_id": r.session_id,
                 "app": r.app,
-                "category": r[9],
+                "category": r.category,
                 "category_status": r.status,
                 "calls": r.calls,
                 "calls_in_window": r.calls_in_window,
                 "first_call_at": r.first_call_at,
                 "last_call_at": r.last_call_at,
                 "spend_usd": spend,
+                "api_equivalent_usd": Decimal(r.api_equivalent_usd),
                 "budget_usd": budget,
                 "budget_source": r.source or "default",
                 "spend_fraction": (spend / budget).quantize(Decimal("0.0001")),
@@ -435,6 +449,8 @@ async def session_calls(
             "ttft_ms": r.ttft_ms,
             "category_tag": r.category,
             "app": r.app,
+            "billing": r.billing,
+            "request_class": r.request_class,
         }
         for r in rows
     ]

@@ -86,6 +86,11 @@ def allow_client_budgets() -> bool:
 
 
 @pytest.fixture
+def allow_client_credentials() -> bool:
+    return True
+
+
+@pytest.fixture
 def admin_key() -> str:
     """Override with "" to test the admin API disabled."""
     return ADMIN_KEY
@@ -98,6 +103,7 @@ def settings(
     default_budget: Decimal,
     admin_key: str,
     allow_client_budgets: bool,
+    allow_client_credentials: bool,
 ) -> Settings:
     return Settings(
         anthropic_api_key=REAL_KEY,
@@ -107,6 +113,7 @@ def settings(
         default_session_budget_usd=default_budget,
         admin_api_key=admin_key,
         allow_client_budgets=allow_client_budgets,
+        allow_client_credentials=allow_client_credentials,
         categorize_enabled=False,  # tests drive the categorizer directly
     )
 
