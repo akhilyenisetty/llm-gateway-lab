@@ -201,10 +201,13 @@ async def test_worker_starts_and_stops_with_the_app(app: FastAPI, settings) -> N
 
     from gateway.main import create_app
 
+    def workers() -> list[asyncio.Task]:  # the categorizer's task, identified by its coroutine
+        return [t for t in asyncio.all_tasks() if t.get_coro().__qualname__ == "worker"]
+
     enabled = create_app(settings.model_copy(update={"categorize_enabled": True}))
-    before = len(asyncio.all_tasks())
     with anyio.fail_after(5):
         async with enabled.router.lifespan_context(enabled):
             await asyncio.sleep(0.05)
-            assert len(asyncio.all_tasks()) == before + 1  # the worker
-    assert len(asyncio.all_tasks()) == before  # cancelled and awaited on shutdown
+            [task] = workers()
+        assert task.done()  # cancelled and awaited on shutdown
+    assert workers() == []

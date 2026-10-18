@@ -2,8 +2,9 @@
 
 Every Messages API call resends the conversation so far, so the request with the most
 messages already contains the session's main conversation in full (in Claude Code, the
-main thread; title, summary, and subagent calls are shorter). That request plus its
-response is the whole story; no stitching across requests is needed.
+main thread; title, summary, and subagent calls are shorter). When Claude Code labels its
+requests (CLAUDE_CODE_GATEWAY_HINT_HEADERS=1), only `main` requests are considered. That
+request plus its response is the whole story; no stitching across requests is needed.
 
 Unlike the classifier's digest, a handoff needs details, so the transcript keeps tool calls
 (name and input) and tool results, which carry file paths, commands, and exact errors.
@@ -79,12 +80,23 @@ def _blocks(content: Any) -> list[dict[str, Any]]:
     return [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
 
 
-def pick_main(requests: list[dict[str, Any]]) -> int | None:
+def pick_main(
+    requests: list[dict[str, Any]], classes: list[str | None] | None = None
+) -> int | None:
     """Index of the request with the most messages (the main conversation); the latest
-    one on ties, since it has the newest response."""
+    one on ties, since it has the newest response.
+
+    When Claude Code labels its requests (`classes`, from x-claude-code-request-class),
+    only `main` requests are considered. Without labels, "longest" can pick an internal
+    request that copies the conversation and adds an instruction of its own (Claude
+    Code's next-prompt suggestion does this), which reads as if the user had said it.
+    """
+    candidates = range(len(requests))
+    if classes and "main" in classes:
+        candidates = [i for i in candidates if classes[i] == "main"]
     best: int | None = None
-    for i, request in enumerate(requests):
-        count = len(request.get("messages") or [])
+    for i in candidates:
+        count = len(requests[i].get("messages") or [])
         if best is None or count >= len(requests[best].get("messages") or []):
             best = i
     return best

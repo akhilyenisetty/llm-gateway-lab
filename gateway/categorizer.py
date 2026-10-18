@@ -57,7 +57,13 @@ async def _digest(session: AsyncSession, ref: SessionRef) -> str | None:
         await session.execute(
             select(RequestContent.request_json, RequestContent.response_json)
             .join(RequestLog, RequestLog.id == RequestContent.request_id)
-            .where(RequestLog.api_key_id == ref.api_key_id, RequestLog.session_id == ref.session_id)
+            .where(
+                RequestLog.api_key_id == ref.api_key_id,
+                RequestLog.session_id == ref.session_id,
+                # Claude Code's auxiliary requests (titles, next-prompt suggestions) carry
+                # its own instructions as user text, which isn't what the session is about.
+                or_(RequestLog.request_class.is_(None), RequestLog.request_class != "auxiliary"),
+            )
             .order_by(RequestLog.created_at)
         )
     ).all()

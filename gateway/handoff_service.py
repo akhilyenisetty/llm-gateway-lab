@@ -65,7 +65,12 @@ async def create_handoff(
         ).scalar_one()
         rows = (
             await session.execute(
-                select(RequestLog.id, RequestContent.request_json, RequestContent.response_json)
+                select(
+                    RequestLog.id,
+                    RequestContent.request_json,
+                    RequestContent.response_json,
+                    RequestLog.request_class,
+                )
                 .join(RequestContent, RequestContent.request_id == RequestLog.id)
                 .where(RequestLog.api_key_id == key_id, RequestLog.session_id == session_id)
                 .order_by(RequestLog.created_at)
@@ -74,9 +79,9 @@ async def create_handoff(
     if not rows:
         raise NoContentError("no stored content for this session (STORE_CONTENT was off)")
 
-    main = pick_main([r.request_json for r in rows])
+    main = pick_main([r.request_json for r in rows], [r.request_class for r in rows])
     assert main is not None  # rows is not empty
-    source_id, request_body, response_body = rows[main]
+    source_id, request_body, response_body, _ = rows[main]
     transcript = build_transcript(
         request_body, response_body, max_tokens=settings.handoff_max_input_tokens
     )
