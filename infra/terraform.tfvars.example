@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars (gitignored) and adjust. Every value here is optional.
+
+region       = "us-east-1"
+project_name = "llm-gateway"
+
+# HTTPS: an ACM certificate for your domain (strongly recommended; see docs/DEPLOY.md).
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+
+# Only these addresses can open the full (admin) dashboard. Find yours: curl -s ifconfig.me
+# admin_cidrs = ["203.0.113.7/32"]
+
+gateway_settings = {
+  STORE_CONTENT              = "false" # "true" enables handoffs and automatic categories
+  DEFAULT_SESSION_BUDGET_USD = "5.00"
+  ALLOW_CLIENT_BUDGETS       = "true"
+  ALLOW_CLIENT_CREDENTIALS   = "true"
+  ALERT_THRESHOLDS           = "[0.8, 1.0]"
+}

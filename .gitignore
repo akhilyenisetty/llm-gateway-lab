@@ -34,3 +34,10 @@ dashboard/dist/
 
 # gw runtime files (pids, logs)
 .gateway/
+
+# Terraform: local state (holds the database password), plans, provider downloads, your values
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfplan
+infra/terraform.tfvars
