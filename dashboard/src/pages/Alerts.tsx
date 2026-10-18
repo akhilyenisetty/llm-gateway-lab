@@ -38,6 +38,7 @@ export function AlertsPage() {
                     <th className="num">Reached</th>
                     <th className="num">Threshold</th>
                     <th>Detail</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -63,6 +64,11 @@ export function AlertsPage() {
                       </td>
                       <td className="num">{pct(a.threshold, 0)}</td>
                       <td>{describe(a)}</td>
+                      <td>
+                        <Link to={`/sessions/${a.api_key_id}/${encodeURIComponent(a.session_id)}#handoff`}>
+                          Handoff →
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

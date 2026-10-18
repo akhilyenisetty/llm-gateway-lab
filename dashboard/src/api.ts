@@ -143,6 +143,29 @@ export interface CallRow {
   app: string | null;
 }
 
+export interface HandoffSummary {
+  id: string;
+  created_at: string;
+  session_id: string;
+  requested_by: string;
+  status: "ready" | "error";
+  error: string | null;
+  session_calls: number;
+  transcript_messages: number;
+  omitted_blocks: number;
+  model: string;
+  effort: string;
+  prompt_version: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: Money | null;
+}
+
+export interface Handoff extends HandoffSummary {
+  content: Record<string, unknown> | null;
+  markdown: string | null;
+}
+
 export interface KeyRow {
   id: string;
   key_prefix: string;
@@ -194,4 +217,18 @@ export async function request<T>(
     throw new ApiError(response.status, message);
   }
   return (await response.json()) as T;
+}
+
+/** Download a text file from an authenticated endpoint. A plain <a href> can't send the
+ * admin key header, so fetch it, then save it through a temporary object URL. */
+export async function downloadText(adminKey: string, path: string, filename: string): Promise<void> {
+  const response = await fetch(path, { headers: { Authorization: `Bearer ${adminKey}` } });
+  if (response.status === 401) throw new UnauthorizedError("invalid admin key");
+  if (!response.ok) throw new ApiError(response.status, `${response.status} ${response.statusText}`);
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

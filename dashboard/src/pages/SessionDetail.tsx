@@ -6,6 +6,7 @@ import { ApiError, type CallRow, type SessionStatus } from "../api";
 import { ChartCard, Meter, QueryView } from "../components";
 import { dateTime, int, ms, pct, usd } from "../format";
 import { useSessionActions, useSessionCalls, useSessionStatus } from "../queries";
+import { HandoffCard } from "./HandoffCard";
 
 export function SessionDetailPage() {
   const { keyId = "", sessionId = "" } = useParams();
@@ -20,7 +21,14 @@ export function SessionDetailPage() {
         {sessionId}
       </h1>
       <QueryView query={status}>
-        {(s) => <SessionSummary status={s} keyId={keyId} sessionId={sessionId} />}
+        {(s) => (
+          <>
+            <SessionSummary status={s} keyId={keyId} sessionId={sessionId} />
+            <div style={{ marginTop: 16 }}>
+              <HandoffCard keyId={keyId} sessionId={sessionId} hasAlerts={s.alerts.length > 0} />
+            </div>
+          </>
+        )}
       </QueryView>
       <div style={{ marginTop: 16 }}>
         <QueryView query={calls} empty={(rows) => rows.length === 0}>

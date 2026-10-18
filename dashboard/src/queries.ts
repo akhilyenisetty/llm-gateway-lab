@@ -14,6 +14,8 @@ import {
   type AlertRow,
   type CallRow,
   type CategoryRow,
+  type Handoff,
+  type HandoffSummary,
   type KeyRow,
   type Overview,
   type Query,
@@ -119,6 +121,12 @@ export const useSessionStatus = (keyId: string, sessionId: string) =>
 export const useSessionCalls = (keyId: string, sessionId: string) =>
   useAdminQuery<CallRow[]>(`${sessionPath(keyId, sessionId)}/calls`, {}, { windowed: false });
 
+export const useHandoffs = (keyId: string, sessionId: string) =>
+  useAdminQuery<HandoffSummary[]>(`${sessionPath(keyId, sessionId)}/handoffs`, {}, { windowed: false });
+
+export const useHandoff = (id: string | undefined) =>
+  useAdminQuery<Handoff>(`/admin/handoffs/${id}`, {}, { windowed: false, enabled: !!id });
+
 /** Actions on one session: set its budget, or categorize it now. Both refresh the
  * session's data on success. */
 export function useSessionActions(keyId: string, sessionId: string) {
@@ -138,5 +146,12 @@ export function useSessionActions(keyId: string, sessionId: string) {
     mutationFn: () => request<SessionStatus>(adminKey ?? "", `${base}/categorize`, { method: "POST" }),
     onSuccess: refresh,
   });
-  return useMemo(() => ({ setBudget, categorize }), [setBudget, categorize]);
+  const generateHandoff = useMutation({
+    mutationFn: () => request<Handoff>(adminKey ?? "", `${base}/handoffs`, { method: "POST" }),
+    onSuccess: refresh,
+  });
+  return useMemo(
+    () => ({ setBudget, categorize, generateHandoff }),
+    [setBudget, categorize, generateHandoff],
+  );
 }

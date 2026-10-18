@@ -400,3 +400,21 @@ tbody tr:hover {
 .kv dd {
   margin: 0;
 }
+
+/* Handoff */
+.card.offer {
+  border-color: var(--status-warning);
+}
+.handoff-md {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 12px 0 0;
+  max-height: 480px;
+  overflow: auto;
+}
