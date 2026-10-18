@@ -95,6 +95,7 @@ def settings(
         default_session_budget_usd=default_budget,
         admin_api_key=admin_key,
         allow_client_budgets=allow_client_budgets,
+        categorize_enabled=False,  # tests drive the categorizer directly
     )
 
 

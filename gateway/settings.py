@@ -6,7 +6,7 @@ Every setting here is documented in `.env.example`.
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,9 +44,16 @@ class Settings(BaseSettings):
     # Bearer token for the /admin API. Empty disables the admin API.
     admin_api_key: SecretStr = SecretStr("")
 
-    # Models the gateway itself uses in later stages (handoff docs, classification).
+    # Models the gateway itself uses (handoff docs, classification).
     handoff_model: str = "claude-sonnet-5-5"
     classifier_model: str = "claude-haiku-5-5"
+    classifier_effort: Literal["low", "medium", "high"] = "low"
+    categories_path: Path = PROJECT_ROOT / "config" / "categories.yaml"
+    # Background categorization of idle sessions (needs STORE_CONTENT=true for sessions
+    # without client X-Category tags).
+    categorize_enabled: bool = True
+    categorize_idle_s: Annotated[int, Field(ge=0)] = 600
+    categorize_interval_s: Annotated[int, Field(ge=1)] = 60
 
 
 @lru_cache

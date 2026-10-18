@@ -8,17 +8,20 @@
 Run with: uvicorn gateway.main:app
 """
 
+import asyncio
 import json
 import logging
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
 
 import httpx
 from fastapi import FastAPI, Request, Response
 
-from gateway import admin, recorder
+from gateway import admin, categorizer, recorder
 from gateway.auth import extract_key, find_active_key
+from gateway.classifier import classifier_from_settings
 from gateway.db import make_engine, make_session_factory
 from gateway.models import ApiKey
 from gateway.pricing import PriceTable
@@ -45,7 +48,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             base_url=settings.anthropic_base_url,
             timeout=httpx.Timeout(settings.upstream_timeout_s, connect=10.0),
         )
+        app.state.classifier = classifier_from_settings(settings, app.state.prices)
+        worker = None
+        if settings.categorize_enabled:
+            worker = asyncio.create_task(
+                categorizer.worker(
+                    app.state.session_factory,
+                    app.state.classifier,
+                    idle=timedelta(seconds=settings.categorize_idle_s),
+                    interval_s=settings.categorize_interval_s,
+                )
+            )
         yield
+        if worker is not None:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker
         await app.state.upstream.aclose()
         await engine.dispose()
 

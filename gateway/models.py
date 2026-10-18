@@ -160,3 +160,32 @@ class Alert(Base):
         ForeignKey("requests.id", ondelete="SET NULL")
     )
     detail: Mapped[Any] = mapped_column(JsonType)  # e.g. spent and budget, or tokens and window
+
+
+class SessionCategory(Base):
+    """A session's category: the client's tag if it sent one, otherwise the classifier's.
+
+    `category` is the effective value (what spend-by-category uses). The classifier fields
+    record exactly what produced `auto_category`, so results stay comparable across prompt
+    and model changes. `classified_calls` is the session's call count when this was
+    computed; a session that has grown since is categorized again.
+    """
+
+    __tablename__ = "session_categories"
+
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    category: Mapped[str | None] = mapped_column(String(100))
+    # "client_tag" | "classified" | "no_content" (STORE_CONTENT off) | "error"
+    status: Mapped[str] = mapped_column(String(20))
+    client_category: Mapped[str | None] = mapped_column(String(100))
+    auto_category: Mapped[str | None] = mapped_column(String(100))
+    auto_reason: Mapped[str | None] = mapped_column(String(300))
+    classifier_model: Mapped[str | None] = mapped_column(String(100))
+    classifier_effort: Mapped[str | None] = mapped_column(String(20))
+    prompt_version: Mapped[str | None] = mapped_column(String(20))
+    categories_version: Mapped[int | None] = mapped_column(Integer)
+    classifier_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 8))
+    error: Mapped[str | None] = mapped_column(String(500))
+    classified_calls: Mapped[int] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
