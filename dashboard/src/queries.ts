@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router-dom";
 
 import {
   request,
+  requestText,
   UnauthorizedError,
   type AlertRow,
   type CallRow,
@@ -17,6 +18,7 @@ import {
   type Handoff,
   type HandoffSummary,
   type KeyRow,
+  type Me,
   type Overview,
   type Query,
   type SessionPage,
@@ -78,14 +80,14 @@ function useAdminQuery<T>(
   query: Query,
   { windowed = true, enabled = true }: { windowed?: boolean; enabled?: boolean } = {},
 ): UseQueryResult<T> {
-  const { adminKey, signOut } = useAuth();
+  const { apiKey, signOut } = useAuth();
   const { range, userId } = useFilters();
   const fullQuery = windowed ? { ...query, key_id: userId || undefined } : query;
   return useQuery({
     queryKey: [path, fullQuery, windowed ? range : null],
     queryFn: async () => {
       try {
-        return await request<T>(adminKey ?? "", path, {
+        return await request<T>(apiKey ?? "", path, {
           query: windowed ? { ...fullQuery, ...windowFor(range) } : fullQuery,
         });
       } catch (error) {
@@ -93,7 +95,7 @@ function useAdminQuery<T>(
         throw error;
       }
     },
-    enabled: enabled && !!adminKey,
+    enabled: enabled && !!apiKey,
     refetchInterval: REFRESH_MS,
     placeholderData: keepPreviousData, // keep the last render while refetching
     retry: (count, error) => !(error instanceof UnauthorizedError) && count < 2,
@@ -103,7 +105,8 @@ function useAdminQuery<T>(
 export const useOverview = () => useAdminQuery<Overview>("/admin/stats/overview", {});
 export const useCategories = () => useAdminQuery<CategoryRow[]>("/admin/stats/categories", {});
 export const useUsers = () => useAdminQuery<UserRow[]>("/admin/stats/users", {});
-export const useKeys = () => useAdminQuery<KeyRow[]>("/admin/keys", {}, { windowed: false });
+export const useKeys = (enabled = true) =>
+  useAdminQuery<KeyRow[]>("/admin/keys", {}, { windowed: false, enabled });
 export const useAlerts = (limit = 200) =>
   useAdminQuery<AlertRow[]>("/admin/alerts", { limit }, { windowed: false });
 
@@ -111,43 +114,85 @@ export function useSessions(query: { category?: string; sort?: string; limit: nu
   return useAdminQuery<SessionPage>("/admin/sessions", query);
 }
 
-export function sessionPath(keyId: string, sessionId: string): string {
-  return `/admin/keys/${keyId}/sessions/${encodeURIComponent(sessionId)}`;
+/** Where one session's data lives. Admins reach any session through the admin API; a
+ * user reaches only their own, through the client API (scoped to their key). */
+export interface SessionApi {
+  base: string;
+  markdownPath: (handoffId: string) => string;
+  canCategorize: boolean;
+  /** Query key of the list page to refresh after a change. */
+  listPath: string;
 }
 
-export const useSessionStatus = (keyId: string, sessionId: string) =>
-  useAdminQuery<SessionStatus>(sessionPath(keyId, sessionId), {}, { windowed: false });
+export function adminSessionApi(keyId: string, sessionId: string): SessionApi {
+  return {
+    base: `/admin/keys/${keyId}/sessions/${encodeURIComponent(sessionId)}`,
+    markdownPath: (id) => `/admin/handoffs/${id}/markdown`,
+    canCategorize: true,
+    listPath: "/admin/sessions",
+  };
+}
 
-export const useSessionCalls = (keyId: string, sessionId: string) =>
-  useAdminQuery<CallRow[]>(`${sessionPath(keyId, sessionId)}/calls`, {}, { windowed: false });
+export function userSessionApi(sessionId: string): SessionApi {
+  const base = `/gateway/sessions/${encodeURIComponent(sessionId)}`;
+  return {
+    base,
+    markdownPath: (id) => `${base}/handoffs/${id}/markdown`,
+    canCategorize: false,
+    listPath: "/gateway/usage/sessions",
+  };
+}
 
-export const useHandoffs = (keyId: string, sessionId: string) =>
-  useAdminQuery<HandoffSummary[]>(`${sessionPath(keyId, sessionId)}/handoffs`, {}, { windowed: false });
+export const useSessionStatus = (api: SessionApi) =>
+  useAdminQuery<SessionStatus>(api.base, {}, { windowed: false });
 
-export const useHandoff = (id: string | undefined) =>
-  useAdminQuery<Handoff>(`/admin/handoffs/${id}`, {}, { windowed: false, enabled: !!id });
+export const useSessionCalls = (api: SessionApi) =>
+  useAdminQuery<CallRow[]>(`${api.base}/calls`, {}, { windowed: false });
 
-/** Actions on one session: set its budget, or categorize it now. Both refresh the
- * session's data on success. */
-export function useSessionActions(keyId: string, sessionId: string) {
-  const { adminKey } = useAuth();
+export const useHandoffs = (api: SessionApi) =>
+  useAdminQuery<HandoffSummary[]>(`${api.base}/handoffs`, {}, { windowed: false });
+
+/** One handoff's Markdown (fetched only when shown). */
+export function useHandoffMarkdown(api: SessionApi, id: string | undefined, enabled: boolean) {
+  const { apiKey } = useAuth();
+  return useQuery({
+    queryKey: ["handoff-markdown", id],
+    queryFn: () => requestText(apiKey ?? "", api.markdownPath(id ?? "")),
+    enabled: enabled && !!id && !!apiKey,
+    staleTime: Infinity, // a stored handoff never changes
+  });
+}
+
+// The signed-in user's own data (role "user").
+export const useMe = () => useAdminQuery<Me>("/gateway/me", {}, { windowed: false });
+export const useMyUsage = () => useAdminQuery<Overview>("/gateway/usage", {});
+export function useMySessions(query: { sort?: string; limit: number; offset: number }) {
+  return useAdminQuery<SessionPage>("/gateway/usage/sessions", query);
+}
+
+/** Actions on one session: set its budget, categorize it now (admin), write a handoff.
+ * Each refreshes the session's data and the list it belongs to. */
+export function useSessionActions(api: SessionApi) {
+  const { apiKey } = useAuth();
   const client = useQueryClient();
-  const base = sessionPath(keyId, sessionId);
-  const refresh = () => client.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith(base) || q.queryKey[0] === "/admin/sessions" });
+  const refresh = () =>
+    client.invalidateQueries({
+      predicate: (q) => String(q.queryKey[0]).startsWith(api.base) || q.queryKey[0] === api.listPath,
+    });
   const setBudget = useMutation({
     mutationFn: (budgetUsd: string) =>
-      request<SessionStatus>(adminKey ?? "", `${base}/budget`, {
+      request<SessionStatus>(apiKey ?? "", `${api.base}/budget`, {
         method: "PUT",
         body: { budget_usd: budgetUsd },
       }),
     onSuccess: refresh,
   });
   const categorize = useMutation({
-    mutationFn: () => request<SessionStatus>(adminKey ?? "", `${base}/categorize`, { method: "POST" }),
+    mutationFn: () => request<SessionStatus>(apiKey ?? "", `${api.base}/categorize`, { method: "POST" }),
     onSuccess: refresh,
   });
   const generateHandoff = useMutation({
-    mutationFn: () => request<Handoff>(adminKey ?? "", `${base}/handoffs`, { method: "POST" }),
+    mutationFn: () => request<Handoff>(apiKey ?? "", `${api.base}/handoffs`, { method: "POST" }),
     onSuccess: refresh,
   });
   return useMemo(

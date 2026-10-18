@@ -19,7 +19,8 @@ import { RANGES, useFilters, useKeys, type RangeKey } from "./queries";
 
 // ---- Layout ---------------------------------------------------------------------------
 
-const PAGES = [
+const USER_PAGES = [["/", "My usage"]] as const;
+const ADMIN_PAGES = [
   ["/", "Overview"],
   ["/categories", "Categories"],
   ["/users", "Users"],
@@ -27,8 +28,9 @@ const PAGES = [
   ["/alerts", "Alerts"],
 ] as const;
 
-export function Layout() {
+export function Layout({ role }: { role: "admin" | "user" }) {
   const { signOut } = useAuth();
+  const pages = role === "admin" ? ADMIN_PAGES : USER_PAGES;
   // Keep the shared filters (range, user) when moving between pages.
   const [params] = useSearchParams();
   const shared = new URLSearchParams();
@@ -41,7 +43,10 @@ export function Layout() {
     <div className="shell">
       <nav className="nav" aria-label="Main">
         <h1>LLM Gateway</h1>
-        {PAGES.map(([to, label]) => (
+        <div className="sub" style={{ margin: "-14px 8px 16px", color: "var(--text-muted)", fontSize: 12 }}>
+          {role === "admin" ? "admin" : "your usage"}
+        </div>
+        {pages.map(([to, label]) => (
           <NavLink key={to} to={{ pathname: to, search }} end={to === "/"}>
             {label}
           </NavLink>
@@ -60,7 +65,9 @@ export function Layout() {
 /** One row of filters above the content it scopes: the time range, then the user. */
 export function Filters({ showUser = true, children }: { showUser?: boolean; children?: ReactNode }) {
   const { range, setRange, userId, setUserId } = useFilters();
-  const keys = useKeys();
+  // Only the admin view has a user picker; a user's key must never call the admin API (a
+  // 401 there would sign them out).
+  const keys = useKeys(showUser);
   return (
     <div className="filters">
       <div className="segmented" role="group" aria-label="Time range">

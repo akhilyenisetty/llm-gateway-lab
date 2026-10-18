@@ -5,17 +5,35 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { ApiError, type CallRow, type SessionStatus } from "../api";
 import { ChartCard, Meter, QueryView } from "../components";
 import { dateTime, int, ms, pct, usd } from "../format";
-import { useSessionActions, useSessionCalls, useSessionStatus } from "../queries";
+import {
+  adminSessionApi,
+  useSessionActions,
+  useSessionCalls,
+  useSessionStatus,
+  userSessionApi,
+  type SessionApi,
+} from "../queries";
 import { HandoffCard } from "./HandoffCard";
 
+/** Admin route: any user's session. */
 export function SessionDetailPage() {
   const { keyId = "", sessionId = "" } = useParams();
-  const status = useSessionStatus(keyId, sessionId);
-  const calls = useSessionCalls(keyId, sessionId);
+  return <SessionView api={adminSessionApi(keyId, sessionId)} sessionId={sessionId} back="/sessions" />;
+}
+
+/** User route (My usage): one of the signed-in user's own sessions. */
+export function MySessionPage() {
+  const { sessionId = "" } = useParams();
+  return <SessionView api={userSessionApi(sessionId)} sessionId={sessionId} back="/" />;
+}
+
+function SessionView({ api, sessionId, back }: { api: SessionApi; sessionId: string; back: string }) {
+  const status = useSessionStatus(api);
+  const calls = useSessionCalls(api);
   return (
     <>
       <p style={{ margin: "0 0 8px" }}>
-        <Link to="/sessions">← Sessions</Link>
+        <Link to={back}>← {back === "/" ? "My usage" : "Sessions"}</Link>
       </p>
       <h1 className="page-title mono" style={{ fontSize: 16 }}>
         {sessionId}
@@ -23,9 +41,9 @@ export function SessionDetailPage() {
       <QueryView query={status}>
         {(s) => (
           <>
-            <SessionSummary status={s} keyId={keyId} sessionId={sessionId} />
+            <SessionSummary status={s} api={api} />
             <div style={{ marginTop: 16 }}>
-              <HandoffCard keyId={keyId} sessionId={sessionId} hasAlerts={s.alerts.length > 0} />
+              <HandoffCard api={api} sessionId={sessionId} hasAlerts={s.alerts.length > 0} />
             </div>
           </>
         )}
@@ -39,8 +57,8 @@ export function SessionDetailPage() {
   );
 }
 
-function SessionSummary({ status, keyId, sessionId }: { status: SessionStatus; keyId: string; sessionId: string }) {
-  const { setBudget, categorize } = useSessionActions(keyId, sessionId);
+function SessionSummary({ status, api }: { status: SessionStatus; api: SessionApi }) {
+  const { setBudget, categorize } = useSessionActions(api);
   const [budget, setBudgetInput] = useState("");
   const category = status.category;
   const onSubmit = (e: FormEvent) => {
@@ -62,8 +80,8 @@ function SessionSummary({ status, keyId, sessionId }: { status: SessionStatus; k
         </p>
         {Number(status.api_equivalent_usd) > 0 && (
           <p className="sub" style={{ color: "var(--text-muted)", marginTop: -8 }}>
-            {usd(status.api_equivalent_usd)} of this ran on the user's own plan or key: an
-            API-equivalent cost, not paid by the gateway.
+            {usd(status.api_equivalent_usd)} of this ran on {api.canCategorize ? "the user's" : "your"} own
+            plan or key: an API-equivalent cost, not paid by the gateway.
           </p>
         )}
         <form className="form-row" onSubmit={onSubmit}>
@@ -98,9 +116,11 @@ function SessionSummary({ status, keyId, sessionId }: { status: SessionStatus; k
       <section className="card">
         <div className="card-head">
           <h2>Category</h2>
-          <button className="link-button" onClick={() => categorize.mutate()} disabled={categorize.isPending}>
-            {categorize.isPending ? "Categorizing…" : "Categorize now"}
-          </button>
+          {api.canCategorize && (
+            <button className="link-button" onClick={() => categorize.mutate()} disabled={categorize.isPending}>
+              {categorize.isPending ? "Categorizing…" : "Categorize now"}
+            </button>
+          )}
         </div>
         {category ? (
           <dl className="kv">

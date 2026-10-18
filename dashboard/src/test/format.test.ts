@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bucketLabel, ms, pct, usd } from "../format";
+import { bucketLabel, ms, pct, plural, usd } from "../format";
 
 describe("usd", () => {
   it("keeps small amounts visible", () => {
@@ -17,6 +17,11 @@ describe("usd", () => {
     expect(usd("0")).toBe("$0");
     expect(usd(null)).toBe("—");
   });
+});
+
+it("pluralizes counts", () => {
+  expect(plural(1, "failed call")).toBe("1 failed call");
+  expect(plural(3, "failed call")).toBe("3 failed calls");
 });
 
 it("formats percentages and durations", () => {

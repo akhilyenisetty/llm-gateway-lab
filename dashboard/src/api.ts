@@ -194,7 +194,7 @@ export class ApiError extends Error {
 export type Query = Record<string, string | number | undefined>;
 
 export async function request<T>(
-  adminKey: string,
+  apiKey: string,
   path: string,
   { query, method = "GET", body }: { query?: Query; method?: string; body?: unknown } = {},
 ): Promise<T> {
@@ -206,7 +206,7 @@ export async function request<T>(
   const response = await fetch(url, {
     method,
     headers: {
-      Authorization: `Bearer ${adminKey}`,
+      Authorization: `Bearer ${apiKey}`,
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -225,10 +225,24 @@ export async function request<T>(
   return (await response.json()) as T;
 }
 
+export interface Me {
+  name: string;
+  key_prefix: string;
+  created_at: string;
+}
+
+/** A text response (e.g. a handoff's Markdown) from an authenticated endpoint. */
+export async function requestText(apiKey: string, path: string): Promise<string> {
+  const response = await fetch(path, { headers: { Authorization: `Bearer ${apiKey}` } });
+  if (response.status === 401) throw new UnauthorizedError("invalid key");
+  if (!response.ok) throw new ApiError(response.status, `${response.status} ${response.statusText}`);
+  return response.text();
+}
+
 /** Download a text file from an authenticated endpoint. A plain <a href> can't send the
  * admin key header, so fetch it, then save it through a temporary object URL. */
-export async function downloadText(adminKey: string, path: string, filename: string): Promise<void> {
-  const response = await fetch(path, { headers: { Authorization: `Bearer ${adminKey}` } });
+export async function downloadText(apiKey: string, path: string, filename: string): Promise<void> {
+  const response = await fetch(path, { headers: { Authorization: `Bearer ${apiKey}` } });
   if (response.status === 401) throw new UnauthorizedError("invalid admin key");
   if (!response.ok) throw new ApiError(response.status, `${response.status} ${response.statusText}`);
   const url = URL.createObjectURL(await response.blob());

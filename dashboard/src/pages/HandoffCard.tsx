@@ -3,17 +3,17 @@ import { useState } from "react";
 import { ApiError, downloadText } from "../api";
 import { useAuth } from "../authContext";
 import { dateTime, int, usd } from "../format";
-import { useHandoff, useHandoffs, useSessionActions } from "../queries";
+import { useHandoffMarkdown, useHandoffs, useSessionActions, type SessionApi } from "../queries";
 
 /** The session's handoff documents: generate one, read the latest, download it. Offered
  * prominently once the session has an alert, and available any time. */
-export function HandoffCard({ keyId, sessionId, hasAlerts }: { keyId: string; sessionId: string; hasAlerts: boolean }) {
-  const { adminKey } = useAuth();
-  const { generateHandoff } = useSessionActions(keyId, sessionId);
-  const handoffs = useHandoffs(keyId, sessionId);
+export function HandoffCard({ api, sessionId, hasAlerts }: { api: SessionApi; sessionId: string; hasAlerts: boolean }) {
+  const { apiKey } = useAuth();
+  const { generateHandoff } = useSessionActions(api);
+  const handoffs = useHandoffs(api);
   const latestReady = handoffs.data?.find((h) => h.status === "ready");
-  const latest = useHandoff(latestReady?.id);
   const [expanded, setExpanded] = useState(false);
+  const latestMarkdown = useHandoffMarkdown(api, latestReady?.id, expanded);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const error = generateHandoff.error;
@@ -27,11 +27,11 @@ export function HandoffCard({ keyId, sessionId, hasAlerts }: { keyId: string; se
         : null;
 
   const download = async () => {
-    if (!latestReady || !adminKey) return;
+    if (!latestReady || !apiKey) return;
     setDownloadError(null);
     try {
       const stamp = latestReady.created_at.slice(0, 16).replace(/[-:T]/g, "");
-      await downloadText(adminKey, `/admin/handoffs/${latestReady.id}/markdown`, `handoff-${sessionId.slice(0, 40)}-${stamp}.md`);
+      await downloadText(apiKey, api.markdownPath(latestReady.id), `handoff-${sessionId.slice(0, 40)}-${stamp}.md`);
     } catch (e) {
       setDownloadError(String(e));
     }
@@ -75,7 +75,7 @@ export function HandoffCard({ keyId, sessionId, hasAlerts }: { keyId: string; se
             </span>
           </div>
           {downloadError && <div className="error-box">{downloadError}</div>}
-          {expanded && latest.data?.markdown && <pre className="handoff-md">{latest.data.markdown}</pre>}
+          {expanded && latestMarkdown.data && <pre className="handoff-md">{latestMarkdown.data}</pre>}
         </>
       )}
       {handoffs.data && handoffs.data.length > 1 && (

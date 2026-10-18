@@ -1,6 +1,6 @@
 import type { Overview as OverviewData } from "../api";
 import { ChartCard, Filters, QueryView, RankBars, StatTile, TimeBars, type Series } from "../components";
-import { compact, int, ms, pct, usd } from "../format";
+import { compact, int, ms, pct, plural, usd } from "../format";
 import { useOverview } from "../queries";
 
 const SPEND: Series[] = [{ key: "spend", label: "spend", color: "var(--series)", format: usd }];
@@ -45,7 +45,7 @@ function OverviewBody({ data }: { data: OverviewData }) {
         <StatTile
           label="Error rate"
           value={pct(data.error_rate)}
-          note={`${int(data.errors)} failed calls`}
+          note={plural(data.errors, "failed call")}
         />
         <StatTile
           label="Latency p50"

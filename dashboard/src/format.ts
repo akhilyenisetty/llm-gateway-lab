@@ -52,6 +52,11 @@ export function bucketLabel(iso: string, bucket: "hour" | "day"): string {
     : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
+/** "1 failed call", "3 failed calls". */
+export function plural(n: number, word: string): string {
+  return `${int(n)} ${word}${n === 1 ? "" : "s"}`;
+}
+
 export function shortId(id: string, length = 14): string {
   return id.length > length ? `${id.slice(0, length)}…` : id;
 }

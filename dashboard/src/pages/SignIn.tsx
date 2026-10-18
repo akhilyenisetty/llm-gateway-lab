@@ -1,30 +1,44 @@
 import { useState, type FormEvent } from "react";
 
-import { request, UnauthorizedError, ApiError } from "../api";
-import { useAuth } from "../authContext";
+import { ApiError, request, UnauthorizedError } from "../api";
+import { useAuth, type Role } from "../authContext";
 
-/** Asks for the gateway's ADMIN_API_KEY and checks it against the API before keeping it. */
+/** Sign in with either key: the gateway's ADMIN_API_KEY (everything) or your own
+ * gateway key (your own usage). The key is checked against the API before it's kept. */
 export function SignInPage() {
   const { signIn } = useAuth();
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
 
+  const roleOf = async (candidate: string): Promise<Role | null> => {
+    try {
+      await request(candidate, "/admin/keys");
+      return "admin";
+    } catch (err) {
+      // 401: not the admin key; 503: admin API disabled. Either way, try it as a gateway key.
+      if (!(err instanceof UnauthorizedError || (err instanceof ApiError && err.status === 503))) throw err;
+    }
+    try {
+      await request(candidate, "/gateway/me");
+      return "user";
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return null;
+      throw err;
+    }
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setChecking(true);
     setError(null);
+    const candidate = key.trim();
     try {
-      await request(key.trim(), "/admin/keys");
-      signIn(key.trim());
+      const role = await roleOf(candidate);
+      if (role) signIn(candidate, role);
+      else setError("That key was rejected: it's neither the admin key nor an active gateway key.");
     } catch (err) {
-      setError(
-        err instanceof UnauthorizedError
-          ? "That admin key was rejected."
-          : err instanceof ApiError && err.status === 503
-            ? "The admin API is disabled: set ADMIN_API_KEY on the gateway."
-            : `Couldn't reach the gateway (${String(err)}).`,
-      );
+      setError(`Couldn't reach the gateway (${String(err)}).`);
     } finally {
       setChecking(false);
     }
@@ -34,14 +48,14 @@ export function SignInPage() {
     <div className="signin card">
       <h1 className="page-title">LLM Gateway</h1>
       <form onSubmit={onSubmit}>
-        <label htmlFor="admin-key">Admin key</label>
+        <label htmlFor="api-key">Admin key or your gateway key</label>
         <input
-          id="admin-key"
+          id="api-key"
           type="password"
           autoComplete="off"
           value={key}
           onChange={(e) => setKey(e.target.value)}
-          placeholder="ADMIN_API_KEY from the gateway's .env"
+          placeholder="ADMIN_API_KEY, or your gw_… key"
         />
         <button className="primary" disabled={!key.trim() || checking}>
           {checking ? "Checking…" : "Sign in"}
@@ -53,7 +67,8 @@ export function SignInPage() {
         )}
       </form>
       <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
-        Kept for this browser tab only (sessionStorage), and sent only to this gateway.
+        The admin key shows every user's usage; a gateway key shows only your own. Kept for this
+        browser tab only (sessionStorage), and sent only to this gateway.
       </p>
     </div>
   );
