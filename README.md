@@ -1,11 +1,19 @@
 # llm-gateway-lab
 
+[![CI](https://github.com/akhilyenisetty/llm-gateway-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/akhilyenisetty/llm-gateway-lab/actions/workflows/ci.yml)
+
 An LLM gateway for the Anthropic API. Apps send their Claude calls through the gateway
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-7 (gateway core, streaming, budgets and alerts, categories, ops
-dashboard, context handoff, handoff eval). Shipping (Docker, CI) is next.
+**New here?** [docs/USAGE.md](docs/USAGE.md) walks through setup, connecting apps and
+Claude Code, giving others access, and the dashboard, step by step with diagrams.
+[docs/DEPLOY.md](docs/DEPLOY.md) puts it on AWS (ECS Fargate + RDS, Terraform in
+[`infra/`](infra)).
+
+**Status:** complete: gateway core, streaming, budgets and alerts, categories, ops
+dashboard, context handoff, handoff eval, and shipping (Docker Compose, CI, Terraform
+for AWS).
 
 **Measured:** the session classifier is 88.4% accurate on 43 hand-labeled sessions, and
 the structured handoff keeps 89.5% of a session's context (vs 90.8% for the full
@@ -14,12 +22,35 @@ Details: [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## How it works
 
+```mermaid
+flowchart LR
+    subgraph Clients
+        CC["Claude Code<br/>(gw claude)"]
+        SDK["SDK apps<br/>(rag-eval-lab, scripts)"]
+    end
+    subgraph GW["Gateway (FastAPI)"]
+        AUTH["auth: gateway key →<br/>real key, or forward<br/>the client's own login"]
+        PROXY["proxy: bytes forwarded<br/>unchanged; SSE streamed<br/>and parsed on the side"]
+        REC["recorder: tokens, cost<br/>(config/prices.yaml),<br/>latency, session, app"]
+        BUD["budgets + alerts"]
+        WORK["background worker:<br/>categorize idle sessions"]
+        HO["handoff writer"]
+    end
+    CC & SDK -->|"/v1/messages<br/>X-Session-Id, X-App, X-Category"| AUTH --> PROXY
+    PROXY <-->|"real key"| ANT["Anthropic API"]
+    PROXY --> REC --> DB[("Postgres")]
+    REC --> BUD --> DB
+    WORK -->|"Haiku"| ANT
+    HO -->|"Sonnet"| ANT
+    WORK & HO <--> DB
+    DASH["Dashboard (React)<br/>admin: everything<br/>user: My usage"] -->|"/admin, /gateway"| GW
 ```
-client (Anthropic SDK, gateway key) ──► gateway ──► Anthropic API (real key)
-                                          │
-                                          ▼
-                              Postgres: one row per call
-```
+
+Code map: `gateway/main.py` (routes), `auth.py` and `proxy.py` (keys, forwarding),
+`streaming.py` and `sse.py` (streams), `recorder.py` and `pricing.py` (what's stored),
+`budgets.py`, `categorizer.py` and `classifier.py`, `handoff*.py`, `admin.py` and
+`client_api.py` (the dashboard's APIs), `cli.py` (`gw`); `migrations/` (database schema),
+`dashboard/` (React app), `evals/` (the two evaluations), `tests/`.
 
 - **Same API as Anthropic.** The gateway serves `POST /v1/messages`, streaming and
   non-streaming, so the Anthropic SDK and Claude Code work unchanged. Other `/v1/*` paths (`/v1/messages/count_tokens`, `/v1/models`, ...)
@@ -130,6 +161,8 @@ It is separate from client gateway keys, so a client can't raise its own budget.
 | Endpoint | Purpose |
 |---|---|
 | `GET /admin/keys` | Gateway keys: id, prefix, name (never the key or its hash) |
+| `POST /admin/keys` | Create a key: `{"name": "alice"}`; the response is the only time the key is shown |
+| `POST /admin/keys/{key_id}/revoke` | Revoke a key; it stops working at once |
 | `GET /admin/keys/{key_id}/sessions/{session_id}` | Spend, budget (and its source), spend fraction, alerts |
 | `PUT /admin/keys/{key_id}/sessions/{session_id}/budget` | Set a budget: `{"budget_usd": "2.50"}` |
 | `POST /admin/keys/{key_id}/sessions/{session_id}/categorize` | Categorize the session now |
@@ -217,7 +250,7 @@ After installing (below), one command runs everything:
 | `gw admin-key --copy` | copy the dashboard sign-in key (generated into `.env` if missing) |
 | `gw status` | what's running, and which keys are set |
 | `gw logs` | follow the gateway's log (`gw logs dashboard` for the dashboard) |
-| `gw keys list`, `create NAME`, `revoke PREFIX` | manage gateway keys for other users and apps |
+| `gw keys list`, `create NAME`, `revoke PREFIX` | manage gateway keys for other users and apps (add `--url URL` for a deployed gateway: goes through its admin API) |
 | `gw restart`, `gw down [--db]` | restart after editing `.env`; stop (`--db` stops Postgres too) |
 
 `gw claude` creates your own gateway key the first time and keeps it in
@@ -246,7 +279,40 @@ To use `gw` from any folder, link it onto your PATH once:
 ln -s "$(pwd)/.venv/bin/gw" ~/.local/bin/gw
 ```
 
-## Running it
+## Running it with Docker Compose
+
+Everything in containers, with nothing to install but Docker:
+
+```bash
+cp .env.example .env                          # then set ANTHROPIC_API_KEY and ADMIN_API_KEY
+docker compose --profile app up -d --build    # gateway :8000, dashboard :8080
+docker compose exec gateway python -m gateway.keys create --name my-app
+```
+
+The gateway container applies migrations on start; the dashboard container (nginx)
+serves the built app and forwards `/admin` and `/gateway` to the gateway. Without
+`--profile app`, `docker compose up -d postgres` starts only the database, which is
+what `gw up` uses. See [docs/USAGE.md](docs/USAGE.md#option-b-docker-compose-everything-in-containers).
+
+## Deploying to AWS
+
+[`infra/`](infra) is Terraform for ECS Fargate + RDS Postgres behind an Application Load
+Balancer: private subnets for the containers and the database, HTTPS at the load
+balancer, secrets in Secrets Manager, the admin API limited to chosen IP ranges, and a
+load balancer timeout long enough for slow Claude calls. `infra/scripts/deploy.sh` builds,
+pushes, and rolls out the images. Step by step, with the reasoning behind each piece:
+[docs/DEPLOY.md](docs/DEPLOY.md).
+
+```mermaid
+flowchart LR
+    U["clients"] -->|HTTPS| ALB["ALB"]
+    ALB -->|"/v1, /gateway, /admin*"| GW["gateway<br/>(Fargate)"]
+    ALB -->|"/*"| DASH["dashboard<br/>(Fargate)"]
+    GW --> RDS[("RDS Postgres")]
+    GW -->|NAT| A["Anthropic"]
+```
+
+## Running it by hand
 
 Requires Python 3.11 and Docker (for Postgres).
 
@@ -309,7 +375,8 @@ handoffs use the session's longest request, which can be one of those auxiliary 
 
 Calls are grouped by Claude Code's session ID automatically.
 
-Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revoke <prefix>`.
+Manage keys with `python -m gateway.keys list`, `create NAME`, and `revoke <prefix>`
+(or `gw keys ...`).
 
 ## Dashboard
 
@@ -352,6 +419,10 @@ linear interpolation (Postgres `percentile_cont`); time buckets are UTC.
 ```
 
 ## Tests
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push: ruff
+lint and format, the tests on SQLite and on Postgres, the dashboard's type-check, lint,
+tests and build, and the Docker image builds. To run them locally:
 
 ```bash
 .venv/bin/pytest
