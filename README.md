@@ -4,8 +4,8 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-3 (gateway core, streaming, budgets and alerts). Categories, the
-dashboard, and context handoff are planned next.
+**Status:** Stages 1-4 (gateway core, streaming, budgets and alerts, categories). The
+dashboard and context handoff are planned next.
 
 ## How it works
 
@@ -33,7 +33,7 @@ client (Anthropic SDK, gateway key) ──► gateway ──► Anthropic API (r
 | Header | Meaning |
 |---|---|
 | `X-Session-Id` | Groups calls into a session. |
-| `X-Category` | Optional category tag. |
+| `X-Category` | Optional category tag (see [Categories](#categories)). |
 | `X-App` | Which application sent the call. |
 | `X-Session-Budget-Usd` | Spend budget for this session (see [Budgets and alerts](#budgets-and-alerts)). |
 
@@ -127,14 +127,40 @@ It is separate from client gateway keys, so a client can't raise its own budget.
 | `GET /admin/keys` | Gateway keys: id, prefix, name (never the key or its hash) |
 | `GET /admin/keys/{key_id}/sessions/{session_id}` | Spend, budget (and its source), spend fraction, alerts |
 | `PUT /admin/keys/{key_id}/sessions/{session_id}/budget` | Set a budget: `{"budget_usd": "2.50"}` |
+| `POST /admin/keys/{key_id}/sessions/{session_id}/categorize` | Categorize the session now |
 | `GET /admin/alerts?key_id=&session_id=&limit=` | Recent alerts, newest first |
+
+### Categories
+
+Each session gets one category, so spend can be broken down by kind of work. The fixed
+list and its definitions are in [`config/categories.yaml`](config/categories.yaml):
+`coding`, `writing`, `analysis`, `question_answering`, `other`.
+
+1. **Client tag.** If the session's calls carry `X-Category`, the most frequent tag is
+   the category. No model call.
+2. **Automatic.** Otherwise Claude Haiku classifies a digest of the stored conversation:
+   the user's messages, the start of the assistant's replies, and the tools used (system
+   prompts, tool results, and repeated history are dropped; see `gateway/digest.py`).
+   Structured outputs restrict the answer to the category list. The classifier calls
+   Anthropic directly, not through the gateway, and its cost is recorded with each
+   result (about $0.0001 per session).
+3. **No content.** Without client tags or stored content (`STORE_CONTENT=false`), the
+   category stays empty.
+
+A background worker categorizes sessions after `CATEGORIZE_IDLE_S` (10 minutes) without
+new calls, again if a session grows, and retries failures after 30 minutes. The admin API
+can categorize a session immediately.
+
+**Measured accuracy: 88.4%** on 43 hand-labeled sessions (3 runs, all agreeing); details,
+method, and limitations in [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ### Privacy: `STORE_CONTENT`
 
 - `false` (default): only metrics are stored (tokens, cost, latency, status, tags).
 - `true`: full request and response bodies are also stored in `request_contents`.
-  Later stages (automatic categorization, handoff docs) need this; client tags work
-  either way.
+  Automatic categorization (and later, handoff docs) needs this; client tags work either
+  way. Anyone with database access, including the gateway operator, can then read every
+  user's prompts and responses, so tell your users.
 
 ## Running it
 
@@ -177,6 +203,15 @@ bills per token to the Anthropic API key behind the gateway, not to a claude.ai
 subscription.
 
 Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revoke <prefix>`.
+
+## Evaluating the classifier
+
+```bash
+.venv/bin/python -m evals.generate_synthetic   # synthetic sessions (once; ~$0.15)
+.venv/bin/python -m evals.export_real          # optional: real sessions with stored content
+.venv/bin/python -m evals.label                # label them by hand, blind
+.venv/bin/python -m evals.run_classifier_eval  # 3 runs; report in results/
+```
 
 ## Tests
 
