@@ -4,8 +4,8 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-5 (gateway core, streaming, budgets and alerts, categories, ops
-dashboard). Context handoff is planned next.
+**Status:** Stages 1-6 (gateway core, streaming, budgets and alerts, categories, ops
+dashboard, context handoff). The handoff eval is planned next.
 
 ## How it works
 
@@ -130,6 +130,9 @@ It is separate from client gateway keys, so a client can't raise its own budget.
 | `POST /admin/keys/{key_id}/sessions/{session_id}/categorize` | Categorize the session now |
 | `GET /admin/keys/{key_id}/sessions/{session_id}/calls` | Every call in the session, oldest first |
 | `GET /admin/alerts?key_id=&session_id=&limit=` | Recent alerts, newest first |
+| `POST /admin/keys/{key_id}/sessions/{session_id}/handoffs` | Generate a handoff document |
+| `GET /admin/keys/{key_id}/sessions/{session_id}/handoffs` | The session's handoffs (all versions) |
+| `GET /admin/handoffs/{id}`, `/admin/handoffs/{id}/markdown` | One handoff as JSON, or as a `.md` download |
 | `GET /admin/stats/overview?from=&to=&key_id=&bucket=` | Totals, percentiles, time series, by model |
 | `GET /admin/stats/categories`, `/admin/stats/users` | Spend and calls by category, by gateway key |
 | `GET /admin/sessions?category=&sort=&limit=&offset=` | Sessions with budget, category, peak context |
@@ -158,11 +161,39 @@ can categorize a session immediately.
 **Measured accuracy: 88.4%** on 43 hand-labeled sessions (3 runs, all agreeing); details,
 method, and limitations in [docs/EVALUATION.md](docs/EVALUATION.md).
 
+### Context handoff
+
+When a session nears its budget or context window, the gateway offers to write a
+**handoff document** that a fresh session (or person) can continue from: goal, current
+state, next step, decisions and why, open tasks, constraints, key files and code, what
+was tried and failed, and open questions.
+
+- **Input:** the session's main conversation. Every call resends the conversation so
+  far, so the request with the most messages already holds it in full. Tool calls and
+  results are kept (they carry paths, commands, and exact errors); thinking and injected
+  reminders are dropped; long blocks are clipped; past `HANDOFF_MAX_INPUT_TOKENS`
+  (150K) the start and the end are kept.
+- **Writer:** `HANDOFF_MODEL` (Claude Sonnet 5.5) with structured outputs, so every
+  section is always present; the gateway renders the Markdown in a fixed layout.
+- **Offered, not automatic:** alerts link to "Generate handoff", highlighted on the
+  session page once it has an alert; the button works any time. Each generation costs
+  a few cents, so there is a per-session cooldown (`HANDOFF_COOLDOWN_S`, 60s).
+- **Needs `STORE_CONTENT=true`** while the session runs.
+
+The session's owner can also get it with their gateway key, scoped to their own
+sessions:
+
+```bash
+curl -s -H "x-api-key: $GW_KEY" localhost:8000/gateway/sessions            # your recent sessions
+curl -s -X POST -H "x-api-key: $GW_KEY" localhost:8000/gateway/sessions/<id>/handoffs
+curl -s -H "x-api-key: $GW_KEY" -o handoff.md localhost:8000/gateway/sessions/<id>/handoffs/latest.md
+```
+
 ### Privacy: `STORE_CONTENT`
 
 - `false` (default): only metrics are stored (tokens, cost, latency, status, tags).
 - `true`: full request and response bodies are also stored in `request_contents`.
-  Automatic categorization (and later, handoff docs) needs this; client tags work either
+  Automatic categorization and handoff documents need this; client tags work either
   way. Anyone with database access, including the gateway operator, can then read every
   user's prompts and responses, so tell your users.
 
