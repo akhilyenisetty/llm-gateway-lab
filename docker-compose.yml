@@ -1,3 +1,14 @@
+# Two ways to use this file (see docs/USAGE.md):
+#
+#   docker compose up -d postgres                 just the database (what `gw up` uses; the
+#                                                 gateway and dashboard then run on your
+#                                                 machine, with live reload)
+#   docker compose --profile app up -d --build    everything in containers: database,
+#                                                 gateway on :8000, dashboard on :8080
+#
+# Settings come from .env (copy .env.example). The gateway container talks to the
+# database by its service name, so DATABASE_URL is overridden below.
+# Host ports can be changed with POSTGRES_PORT, GATEWAY_PORT and DASHBOARD_PORT.
 services:
   postgres:
     image: postgres:17
@@ -6,7 +17,7 @@ services:
       POSTGRES_PASSWORD: gateway
       POSTGRES_DB: gateway
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -14,6 +25,34 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  gateway:
+    profiles: [app]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://gateway:gateway@postgres:5432/gateway
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  dashboard:
+    profiles: [app]
+    build: ./dashboard
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -1,0 +1,14 @@
+# Never send secrets or local state into an image.
+.env
+.git
+.venv
+.gateway
+.pytest_cache
+.ruff_cache
+**/__pycache__
+*.egg-info
+results
+evals
+tests
+docs
+dashboard
