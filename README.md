@@ -229,13 +229,36 @@ message = client.messages.create(
 
 ### Claude Code through the gateway
 
+Two ways, depending on who should pay:
+
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:8000 ANTHROPIC_API_KEY=gw_... claude
+# On your claude.ai plan (subscription): your own login is forwarded unchanged; the
+# gateway identifies you by X-Gateway-Key and never uses its own Anthropic key.
+ANTHROPIC_BASE_URL=http://localhost:8000 \
+ANTHROPIC_CUSTOM_HEADERS="X-Gateway-Key: gw_..." \
+CLAUDE_CODE_GATEWAY_HINT_HEADERS=1 claude
+
+# On the gateway's Anthropic API key (billed per token to that key):
+ANTHROPIC_BASE_URL=http://localhost:8000 ANTHROPIC_API_KEY=gw_... \
+CLAUDE_CODE_GATEWAY_HINT_HEADERS=1 claude
 ```
 
-Calls are grouped by Claude Code's session ID automatically. Note that Claude Code then
-bills per token to the Anthropic API key behind the gateway, not to a claude.ai
-subscription.
+For the first, Claude Code must be signed in to claude.ai and `ANTHROPIC_API_KEY` must
+not be set. Each call records who paid (`billing`: `gateway_key` or
+`client_credential`); for `client_credential` calls the cost is **API-equivalent**, not
+money the gateway spent, and the dashboard and admin API report it separately
+(`api_equivalent_usd`). Budgets count it as a usage signal. The client's login token is
+never stored. `ALLOW_CLIENT_CREDENTIALS=false` turns this mode off. The gateway's own
+calls (session classification, handoff documents) always use the gateway's Anthropic key,
+whichever way the session itself was paid for.
+
+`CLAUDE_CODE_GATEWAY_HINT_HEADERS=1` makes Claude Code label each request
+(`x-claude-code-request-class`: `main`, `subagent`, `compaction`, `auxiliary`). The
+gateway records the label; handoffs then read the session's `main` conversation, and
+the classifier ignores auxiliary requests (titles, next-prompt suggestions). Without it,
+handoffs use the session's longest request, which can be one of those auxiliary copies.
+
+Calls are grouped by Claude Code's session ID automatically.
 
 Manage keys with `python -m gateway.keys list` and `python -m gateway.keys revoke <prefix>`.
 

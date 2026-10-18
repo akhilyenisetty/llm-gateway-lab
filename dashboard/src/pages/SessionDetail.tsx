@@ -60,6 +60,12 @@ function SessionSummary({ status, keyId, sessionId }: { status: SessionStatus; k
         <p style={{ margin: "8px 0 12px" }}>
           {usd(status.spent_usd)} of {usd(status.budget_usd)} · {int(status.calls)} calls
         </p>
+        {Number(status.api_equivalent_usd) > 0 && (
+          <p className="sub" style={{ color: "var(--text-muted)", marginTop: -8 }}>
+            {usd(status.api_equivalent_usd)} of this ran on the user's own plan or key: an
+            API-equivalent cost, not paid by the gateway.
+          </p>
+        )}
         <form className="form-row" onSubmit={onSubmit}>
           <label htmlFor="budget">Set budget (USD)</label>
           <input
@@ -215,6 +221,7 @@ function CallsTable({ calls }: { calls: CallRow[] }) {
         <tr>
           <th>Time</th>
           <th>Model</th>
+          <th>Kind</th>
           <th>Status</th>
           <th className="num">Input</th>
           <th className="num">Cache read</th>
@@ -232,6 +239,10 @@ function CallsTable({ calls }: { calls: CallRow[] }) {
             <tr key={c.id}>
               <td>{dateTime(c.created_at)}</td>
               <td className="mono">{c.model ?? "—"}</td>
+              <td title={c.billing === "client_credential" ? "Ran on the client's own credential; cost is API-equivalent" : "Paid by the gateway's key"}>
+                {c.request_class ?? "—"}
+                {c.billing === "client_credential" && <span className="tag" style={{ marginLeft: 6 }}>own plan</span>}
+              </td>
               <td className={failed ? "status-critical" : undefined}>
                 {failed ? "⛔ " : ""}
                 {c.status_code}

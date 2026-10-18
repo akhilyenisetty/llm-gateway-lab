@@ -32,7 +32,15 @@ function OverviewBody({ data }: { data: OverviewData }) {
   return (
     <>
       <div className="grid tiles">
-        <StatTile label="Spend" value={usd(data.spend_usd)} note={`${int(data.sessions)} sessions`} />
+        <StatTile
+          label="Spend"
+          value={usd(data.spend_usd)}
+          note={
+            Number(data.api_equivalent_usd) > 0
+              ? `incl. ${usd(data.api_equivalent_usd)} API-equivalent on users' own plans`
+              : `${int(data.sessions)} sessions`
+          }
+        />
         <StatTile label="Calls" value={compact(data.calls)} note={`${compact(data.output_tokens)} output tokens`} />
         <StatTile
           label="Error rate"

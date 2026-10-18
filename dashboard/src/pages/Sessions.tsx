@@ -85,7 +85,21 @@ export function SessionsPage() {
                           <span className="tag">{s.category}</span>
                         </td>
                         <td className="num">{int(s.calls)}</td>
-                        <td className="num">{usd(s.spend_usd)}</td>
+                        <td
+                          className="num"
+                          title={
+                            Number(s.api_equivalent_usd) > 0
+                              ? `${usd(s.api_equivalent_usd)} of this is API-equivalent (the user's own plan or key paid)`
+                              : undefined
+                          }
+                        >
+                          {usd(s.spend_usd)}
+                          {Number(s.api_equivalent_usd) > 0 && (
+                            <div>
+                              <span className="tag">own plan</span>
+                            </div>
+                          )}
+                        </td>
                         <td title={`${usd(s.spend_usd)} of ${usd(s.budget_usd)} (${s.budget_source})`}>
                           <Meter fraction={Number(s.spend_fraction)} label={`Budget used of ${usd(s.budget_usd)}`} />
                         </td>

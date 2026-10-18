@@ -23,6 +23,8 @@ export interface Overview {
   calls: number;
   sessions: number;
   spend_usd: Money;
+  /** Part of spend_usd from calls on clients' own credentials (API-equivalent, not paid). */
+  api_equivalent_usd: Money;
   errors: number;
   error_rate: number | null;
   prompt_tokens: number;
@@ -70,6 +72,7 @@ export interface SessionRow {
   first_call_at: string;
   last_call_at: string;
   spend_usd: Money;
+  api_equivalent_usd: Money;
   budget_usd: Money;
   budget_source: string;
   spend_fraction: string;
@@ -114,6 +117,7 @@ export interface SessionStatus {
   session_id: string;
   calls: number;
   spent_usd: Money;
+  api_equivalent_usd: Money;
   budget_usd: Money;
   budget_source: string;
   spend_fraction: string;
@@ -141,6 +145,8 @@ export interface CallRow {
   ttft_ms: number | null;
   category_tag: string | null;
   app: string | null;
+  billing: "gateway_key" | "client_credential";
+  request_class: string | null;
 }
 
 export interface HandoffSummary {
