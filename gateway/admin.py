@@ -143,6 +143,37 @@ class BudgetIn(BaseModel):
     budget_usd: Decimal = Field(gt=0, le=budgets.MAX_BUDGET_USD, decimal_places=4)
 
 
+async def build_session_out(
+    session: AsyncSession, settings: Settings, key: ApiKey, session_id: str
+) -> SessionOut:
+    """A session's spend, budget, category, and alerts. Shared by the admin API (any key)
+    and the client API (the caller's own key only)."""
+    status = await budgets.budget_status(
+        session, key.id, session_id, settings.default_session_budget_usd
+    )
+    alerts = (
+        await session.execute(
+            select(Alert)
+            .where(Alert.api_key_id == key.id, Alert.session_id == session_id)
+            .order_by(Alert.created_at)
+        )
+    ).scalars()
+    category = await session.get(SessionCategory, (key.id, session_id))
+    return SessionOut(
+        api_key_id=key.id,
+        key_prefix=key.key_prefix,
+        session_id=session_id,
+        calls=status.calls,
+        spent_usd=status.spent_usd,
+        api_equivalent_usd=status.api_equivalent_usd,
+        budget_usd=status.budget_usd,
+        budget_source=status.budget_source,
+        spend_fraction=status.spend_fraction,
+        category=CategoryOut.model_validate(category) if category else None,
+        alerts=[AlertOut.model_validate(a) for a in alerts],
+    )
+
+
 def create_router(settings: Settings) -> APIRouter:
     def require_admin(request: Request) -> None:
         expected = settings.admin_api_key.get_secret_value()
@@ -164,30 +195,7 @@ def create_router(settings: Settings) -> APIRouter:
     async def session_out(request: Request, key_id: uuid.UUID, session_id: str) -> SessionOut:
         async with request.app.state.session_factory() as session:
             key = await get_key(session, key_id)
-            status = await budgets.budget_status(
-                session, key_id, session_id, settings.default_session_budget_usd
-            )
-            alerts = (
-                await session.execute(
-                    select(Alert)
-                    .where(Alert.api_key_id == key_id, Alert.session_id == session_id)
-                    .order_by(Alert.created_at)
-                )
-            ).scalars()
-            category = await session.get(SessionCategory, (key_id, session_id))
-            return SessionOut(
-                api_key_id=key_id,
-                key_prefix=key.key_prefix,
-                session_id=session_id,
-                calls=status.calls,
-                spent_usd=status.spent_usd,
-                api_equivalent_usd=status.api_equivalent_usd,
-                budget_usd=status.budget_usd,
-                budget_source=status.budget_source,
-                spend_fraction=status.spend_fraction,
-                category=CategoryOut.model_validate(category) if category else None,
-                alerts=[AlertOut.model_validate(a) for a in alerts],
-            )
+            return await build_session_out(session, settings, key, session_id)
 
     @router.get("/keys")
     async def list_keys(request: Request) -> list[KeyOut]:
