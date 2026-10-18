@@ -28,3 +28,6 @@ CLAUDE.md
 
 # Real conversations exported for labeling stay private
 evals/data/real/
+
+# Dashboard build output
+dashboard/dist/
