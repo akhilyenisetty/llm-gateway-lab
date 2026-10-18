@@ -31,3 +31,6 @@ evals/data/real/
 
 # Dashboard build output
 dashboard/dist/
+
+# gw runtime files (pids, logs)
+.gateway/
