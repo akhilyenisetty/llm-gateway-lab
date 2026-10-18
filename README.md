@@ -205,6 +205,47 @@ curl -s -H "x-api-key: $GW_KEY" -o handoff.md localhost:8000/gateway/sessions/<i
   way. Anyone with database access, including the gateway operator, can then read every
   user's prompts and responses, so tell your users.
 
+## Quick start: the `gw` command
+
+After installing (below), one command runs everything:
+
+| Command | What it does |
+|---|---|
+| `gw up` | start Postgres, apply migrations, start the gateway (in the background) |
+| `gw dashboard` | start the dashboard and open it in the browser |
+| `gw claude` | Claude Code through the gateway, on your claude.ai plan (`--api` to use the gateway's API key, `--budget 2` for a session budget; other arguments go to `claude`) |
+| `gw admin-key --copy` | copy the dashboard sign-in key (generated into `.env` if missing) |
+| `gw status` | what's running, and which keys are set |
+| `gw logs` | follow the gateway's log (`gw logs dashboard` for the dashboard) |
+| `gw keys list`, `create NAME`, `revoke PREFIX` | manage gateway keys for other users and apps |
+| `gw restart`, `gw down [--db]` | restart after editing `.env`; stop (`--db` stops Postgres too) |
+
+`gw claude` creates your own gateway key the first time and keeps it in
+`~/.config/llm-gateway/client.json` (readable only by you).
+
+**Giving someone access.** The admin creates a key per user and sends it privately:
+`gw keys create alice`. The user, on their own machine with this repo installed, runs:
+
+| Command | What it does |
+|---|---|
+| `gw login https://gateway.example.com` | asks for their `gw_…` key (hidden prompt), checks it, saves it |
+| `gw claude` (`--api`, `--budget N`) | Claude Code through that gateway, on their own plan (or the gateway's key) |
+| `eval "$(gw env)"` | points Anthropic SDK apps in this shell at the gateway |
+| `gw sessions` | their recent sessions |
+| `gw handoff [SESSION]` | writes a session's handoff (default: the latest) to `handoff-….md` |
+| `gw whoami`, `gw logout` | which key and gateway they use; forget them |
+
+They can also sign in to the **dashboard with their gateway key**: it opens *My usage*
+(their spend, sessions, budgets, calls, and handoffs) and nothing else. The admin key
+opens the full dashboard. Every `/gateway/...` endpoint behind *My usage* is scoped to
+the caller's key, so no path reaches another user's data (tested).
+
+To use `gw` from any folder, link it onto your PATH once:
+
+```bash
+ln -s "$(pwd)/.venv/bin/gw" ~/.local/bin/gw
+```
+
 ## Running it
 
 Requires Python 3.11 and Docker (for Postgres).
