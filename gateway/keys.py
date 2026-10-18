@@ -1,6 +1,6 @@
 """Command-line tool for managing gateway keys.
 
-python -m gateway.keys create --name rag-eval-lab
+python -m gateway.keys create rag-eval-lab      (or: create --name rag-eval-lab)
 python -m gateway.keys list
 python -m gateway.keys revoke gw_AbC123
 """
@@ -20,11 +20,16 @@ async def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m gateway.keys")
     sub = parser.add_subparsers(dest="command", required=True)
     create = sub.add_parser("create", help="issue a new key")
-    create.add_argument("--name", required=True, help="who or what uses this key")
+    create.add_argument("name", nargs="?", help="who or what uses this key")
+    create.add_argument("--name", dest="name_option", help=argparse.SUPPRESS)
     sub.add_parser("list", help="list keys (prefixes only)")
     revoke = sub.add_parser("revoke", help="revoke a key by its displayed prefix")
     revoke.add_argument("prefix")
     args = parser.parse_args(argv)
+    if args.command == "create":
+        args.name = args.name or args.name_option
+        if not args.name:
+            parser.error("create needs a name: create NAME")
 
     engine = make_engine(get_settings().database_url)
     try:

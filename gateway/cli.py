@@ -42,6 +42,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 from gateway.settings import PROJECT_ROOT
 
@@ -213,11 +214,20 @@ def connection(*, start_local: bool = True) -> tuple[str, str]:
 
 
 def api_call(
-    url: str, key: str, method: str, path: str, *, timeout: float = 120
+    url: str,
+    key: str,
+    method: str,
+    path: str,
+    *,
+    timeout: float = 120,
+    body: dict[str, Any] | None = None,
 ) -> tuple[int, bytes]:
-    request = urllib.request.Request(
-        f"{url}{path}", method=method, headers={"x-api-key": key, "accept": "*/*"}
-    )
+    headers = {"x-api-key": key, "accept": "*/*"}
+    data = None
+    if body is not None:
+        headers["content-type"] = "application/json"
+        data = json.dumps(body).encode()
+    request = urllib.request.Request(f"{url}{path}", method=method, headers=headers, data=data)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status, response.read()
@@ -390,9 +400,46 @@ def cmd_admin_key(args: argparse.Namespace) -> int:
 
 
 def cmd_keys(args: argparse.Namespace) -> int:
-    from gateway import keys
+    """Locally: straight to the database (python -m gateway.keys). With --url: through
+    that gateway's admin API, for a deployed gateway whose database is private."""
+    if not args.url:
+        from gateway import keys
 
-    return asyncio.run(keys.main(args.rest))
+        return asyncio.run(keys.main(args.rest))
+    return remote_keys(args.url.rstrip("/"), args.rest)
+
+
+def remote_keys(url: str, rest: list[str]) -> int:
+    usage = "usage: gw keys --url URL {list | create NAME | revoke PREFIX}"
+    command, params = (rest[0], rest[1:]) if rest else ("", [])
+    if (command, len(params)) not in (("list", 0), ("create", 1), ("revoke", 1)):
+        return fail(usage)
+    admin = os.environ.get("GW_ADMIN_KEY") or getpass.getpass(f"admin key for {url}: ")
+
+    def call(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+        status, data = api_call(url, admin, method, path, body=body)
+        if status >= 400:
+            raise SystemExit(fail(f"{method} {path}: {status} {error_detail(data)}"))
+        return json.loads(data)
+
+    if command == "create":
+        row = call("POST", "/admin/keys", {"name": params[0]})
+        say(f"Created key '{row['name']}' ({row['key_prefix']}...)")
+        say(f"\n  {row['key']}\n")
+        say("Store it now; the gateway keeps only a hash and cannot show it again.")
+        return 0
+    rows = call("GET", "/admin/keys")
+    if command == "list":
+        for row in rows:
+            status = f"revoked {row['revoked_at'][:10]}" if row["revoked_at"] else "active"
+            say(f"{row['key_prefix']}...  {row['name']:<30} {row['created_at'][:10]}  {status}")
+        return 0
+    matches = [r for r in rows if r["key_prefix"] == params[0] and not r["revoked_at"]]
+    if len(matches) != 1:
+        return fail(f"expected one active key with prefix {params[0]!r}, found {len(matches)}")
+    call("POST", f"/admin/keys/{matches[0]['id']}/revoke")
+    say(f"Revoked {params[0]}... ({matches[0]['name']})")
+    return 0
 
 
 def cmd_claude(args: argparse.Namespace, extra: list[str]) -> int:
@@ -511,6 +558,9 @@ def main(argv: list[str] | None = None) -> int:
     admin = sub.add_parser("admin-key", help="print the dashboard sign-in key")
     admin.add_argument("--copy", action="store_true", help="copy it to the clipboard")
     keys = sub.add_parser("keys", help="manage gateway keys (list, create NAME, revoke PREFIX)")
+    keys.add_argument(
+        "--url", help="a deployed gateway, via its admin API (admin key: GW_ADMIN_KEY or a prompt)"
+    )
     keys.add_argument("rest", nargs=argparse.REMAINDER)
     login = sub.add_parser("login", help="save a gateway URL and your gateway key")
     login.add_argument("url", nargs="?", help=f"gateway URL (default {GATEWAY_URL})")

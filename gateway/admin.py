@@ -7,6 +7,8 @@ dashboard reads the same endpoints.
 A session is identified by (gateway key, session ID), so session URLs name the key:
 
     GET /admin/keys                                         keys (id, prefix, name)
+    POST /admin/keys                                        create one: {"name": "alice"}
+    POST /admin/keys/{key_id}/revoke                        revoke one (it stops working)
     GET /admin/keys/{key_id}/sessions/{session_id}          spend, budget, and alerts
     PUT /admin/keys/{key_id}/sessions/{session_id}/budget   set a budget (overrides header)
     POST /admin/keys/{key_id}/sessions/{session_id}/categorize  categorize it now
@@ -36,19 +38,19 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gateway import budgets, categorizer, stats
-from gateway.auth import extract_key
+from gateway.auth import create_key, extract_key
 from gateway.handoff_api import (
     HandoffOut,
     HandoffSummary,
     generate_or_http_error,
     markdown_download,
 )
-from gateway.models import Alert, ApiKey, Handoff, SessionCategory
+from gateway.models import Alert, ApiKey, Handoff, SessionCategory, utcnow
 from gateway.settings import Settings
 
 
@@ -60,6 +62,14 @@ class KeyOut(BaseModel):
     revoked_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class KeyIn(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class KeyCreatedOut(KeyOut):
+    key: str  # the only time the plaintext key is ever returned
 
 
 class AlertOut(BaseModel):
@@ -202,6 +212,24 @@ def create_router(settings: Settings) -> APIRouter:
         async with request.app.state.session_factory() as session:
             keys = (await session.execute(select(ApiKey).order_by(ApiKey.created_at))).scalars()
             return [KeyOut.model_validate(k) for k in keys]
+
+    @router.post("/keys", status_code=201)
+    async def create(request: Request, body: KeyIn) -> KeyCreatedOut:
+        """Issue a key. This is how keys are made on a deployed gateway, whose database
+        isn't reachable from your machine; `gw keys --url URL create NAME` calls it."""
+        async with request.app.state.session_factory() as session:
+            row, plaintext = await create_key(session, body.name)
+            return KeyCreatedOut(**KeyOut.model_validate(row).model_dump(), key=plaintext)
+
+    @router.post("/keys/{key_id}/revoke")
+    async def revoke(request: Request, key_id: uuid.UUID) -> KeyOut:
+        async with request.app.state.session_factory() as session:
+            key = await get_key(session, key_id)
+            if key.revoked_at is not None:
+                raise HTTPException(409, "this key is already revoked")
+            key.revoked_at = utcnow()
+            await session.commit()
+            return KeyOut.model_validate(key)
 
     @router.get("/keys/{key_id}/sessions/{session_id}")
     async def get_session(request: Request, key_id: uuid.UUID, session_id: str) -> SessionOut:
