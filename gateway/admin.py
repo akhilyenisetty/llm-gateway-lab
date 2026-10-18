@@ -11,6 +11,10 @@ A session is identified by (gateway key, session ID), so session URLs name the k
     PUT /admin/keys/{key_id}/sessions/{session_id}/budget   set a budget (overrides header)
     POST /admin/keys/{key_id}/sessions/{session_id}/categorize  categorize it now
     GET /admin/keys/{key_id}/sessions/{session_id}/calls    every call, oldest first
+    POST /admin/keys/{key_id}/sessions/{session_id}/handoffs  generate a handoff document
+    GET /admin/keys/{key_id}/sessions/{session_id}/handoffs   the session's handoffs
+    GET /admin/handoffs/{id}                                one handoff, with its document
+    GET /admin/handoffs/{id}/markdown                       download it as Markdown
     GET /admin/alerts?key_id=&session_id=&limit=            recent alerts, newest first
 
 Dashboard stats (all take ?from=&to= as ISO datetimes, default the last 7 days, and an
@@ -31,14 +35,20 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gateway import budgets, categorizer, stats
 from gateway.auth import extract_key
-from gateway.models import Alert, ApiKey, SessionCategory
+from gateway.handoff_api import (
+    HandoffOut,
+    HandoffSummary,
+    generate_or_http_error,
+    markdown_download,
+)
+from gateway.models import Alert, ApiKey, Handoff, SessionCategory
 from gateway.settings import Settings
 
 
@@ -271,6 +281,41 @@ def create_router(settings: Settings) -> APIRouter:
         async with request.app.state.session_factory() as session:
             await get_key(session, key_id)
             return JSONResponse(to_json(await stats.session_calls(session, key_id, session_id)))
+
+    @router.post("/keys/{key_id}/sessions/{session_id}/handoffs", status_code=201)
+    async def create_handoff(request: Request, key_id: uuid.UUID, session_id: str) -> HandoffOut:
+        async with request.app.state.session_factory() as session:
+            await get_key(session, key_id)
+        return await generate_or_http_error(request, key_id, session_id, "admin")
+
+    @router.get("/keys/{key_id}/sessions/{session_id}/handoffs")
+    async def list_handoffs(
+        request: Request, key_id: uuid.UUID, session_id: str
+    ) -> list[HandoffSummary]:
+        async with request.app.state.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(Handoff)
+                    .where(Handoff.api_key_id == key_id, Handoff.session_id == session_id)
+                    .order_by(Handoff.created_at.desc())
+                )
+            ).scalars()
+            return [HandoffSummary.model_validate(h) for h in rows]
+
+    async def get_handoff(request: Request, handoff_id: uuid.UUID) -> Handoff:
+        async with request.app.state.session_factory() as session:
+            handoff = await session.get(Handoff, handoff_id)
+        if handoff is None:
+            raise HTTPException(404, "no such handoff")
+        return handoff
+
+    @router.get("/handoffs/{handoff_id}")
+    async def handoff_json(request: Request, handoff_id: uuid.UUID) -> HandoffOut:
+        return HandoffOut.model_validate(await get_handoff(request, handoff_id))
+
+    @router.get("/handoffs/{handoff_id}/markdown")
+    async def handoff_markdown(request: Request, handoff_id: uuid.UUID) -> PlainTextResponse:
+        return markdown_download(await get_handoff(request, handoff_id))
 
     @router.get("/alerts")
     async def list_alerts(

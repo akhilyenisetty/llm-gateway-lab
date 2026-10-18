@@ -17,6 +17,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -189,3 +190,36 @@ class SessionCategory(Base):
     error: Mapped[str | None] = mapped_column(String(500))
     classified_calls: Mapped[int] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Handoff(Base):
+    """A generated handoff document for a session. Every generation is kept (a session
+    can have several, as it grows); failed attempts are kept too, with the error."""
+
+    __tablename__ = "handoffs"
+    __table_args__ = (Index("ix_handoffs_session", "api_key_id", "session_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"))
+    session_id: Mapped[str] = mapped_column(String(200))
+    # Who asked: "admin" (dashboard/admin API) or "client" (the session's own gateway key).
+    requested_by: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))  # "ready" | "error"
+    error: Mapped[str | None] = mapped_column(String(500))
+    # What it was made from: the session's main request and how much of it fit.
+    source_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("requests.id", ondelete="SET NULL")
+    )
+    session_calls: Mapped[int] = mapped_column(Integer)
+    transcript_messages: Mapped[int] = mapped_column(Integer)
+    omitted_blocks: Mapped[int] = mapped_column(Integer)
+    # What produced it, and what it cost.
+    model: Mapped[str] = mapped_column(String(100))
+    effort: Mapped[str] = mapped_column(String(20))
+    prompt_version: Mapped[str] = mapped_column(String(20))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 8))
+    content: Mapped[Any | None] = mapped_column(JsonType)  # the structured sections
+    markdown: Mapped[str | None] = mapped_column(Text)

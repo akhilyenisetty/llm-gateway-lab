@@ -3,7 +3,8 @@
     POST /v1/messages   forwarded to Anthropic and recorded (streaming and non-streaming)
     *    /v1/{path}     other Anthropic endpoints, forwarded with the key swap, not recorded
     GET  /health        liveness check, no auth
-    /admin/...          budgets and alerts, with ADMIN_API_KEY (see admin.py)
+    /admin/...          budgets, alerts, stats, handoffs, with ADMIN_API_KEY (admin.py)
+    /gateway/...        a gateway key's own sessions and handoffs (client_api.py)
 
 Run with: uvicorn gateway.main:app
 """
@@ -16,14 +17,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
 
+import anthropic
 import httpx
 from fastapi import FastAPI, Request, Response
 
-from gateway import admin, categorizer, recorder
-from gateway.auth import extract_key, find_active_key
+from gateway import admin, categorizer, client_api, recorder
+from gateway.auth import authenticate_request
 from gateway.classifier import classifier_from_settings
 from gateway.db import make_engine, make_session_factory
-from gateway.models import ApiKey
 from gateway.pricing import PriceTable
 from gateway.proxy import anthropic_error, client_headers, upstream_headers
 from gateway.request_meta import read_meta
@@ -48,7 +49,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             base_url=settings.anthropic_base_url,
             timeout=httpx.Timeout(settings.upstream_timeout_s, connect=10.0),
         )
+        app.state.settings = settings
         app.state.classifier = classifier_from_settings(settings, app.state.prices)
+        # Direct Anthropic client for the gateway's own calls (handoffs); None without a key.
+        key = settings.anthropic_api_key.get_secret_value()
+        app.state.anthropic = (
+            anthropic.AsyncAnthropic(api_key=key, base_url=settings.anthropic_base_url)
+            if key
+            else None
+        )
         worker = None
         if settings.categorize_enabled:
             worker = asyncio.create_task(
@@ -69,13 +78,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="llm-gateway-lab", lifespan=lifespan)
     app.include_router(admin.create_router(settings))
+    app.include_router(client_api.create_router(settings))
 
-    async def authenticate(request: Request) -> ApiKey | None:
-        key = extract_key(request.headers)
-        if not key:
-            return None
-        async with request.app.state.session_factory() as session:
-            return await find_active_key(session, key)
+    authenticate = authenticate_request
 
     def unauthorized() -> Response:
         return anthropic_error(401, "authentication_error", "invalid or missing gateway key")

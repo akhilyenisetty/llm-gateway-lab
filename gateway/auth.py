@@ -12,6 +12,7 @@ import secrets
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
+from starlette.requests import Request
 
 from gateway.models import ApiKey
 
@@ -50,3 +51,12 @@ async def create_key(session: AsyncSession, name: str) -> tuple[ApiKey, str]:
     session.add(row)
     await session.commit()
     return row, plaintext
+
+
+async def authenticate_request(request: Request) -> ApiKey | None:
+    """The active gateway key a request carries, or None."""
+    key = extract_key(request.headers)
+    if not key:
+        return None
+    async with request.app.state.session_factory() as session:
+        return await find_active_key(session, key)

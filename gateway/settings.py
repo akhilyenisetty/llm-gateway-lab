@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     classifier_model: str = "claude-haiku-5-5"
     classifier_effort: Literal["low", "medium", "high"] = "low"
     categories_path: Path = PROJECT_ROOT / "config" / "categories.yaml"
+    handoff_effort: Literal["low", "medium", "high"] = "high"
+    # Largest transcript sent to the handoff model, in tokens (about $0.30 at Sonnet 5.5's
+    # input price when full). Longer sessions keep their start and end.
+    handoff_max_input_tokens: Annotated[int, Field(ge=10_000, le=900_000)] = 150_000
+    # Minimum seconds between handoff generations for one session (each one costs money).
+    handoff_cooldown_s: Annotated[int, Field(ge=0)] = 60
     # Background categorization of idle sessions (needs STORE_CONTENT=true for sessions
     # without client X-Category tags).
     categorize_enabled: bool = True
