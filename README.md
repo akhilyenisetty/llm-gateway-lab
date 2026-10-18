@@ -4,8 +4,13 @@ An LLM gateway for the Anthropic API. Apps send their Claude calls through the g
 instead of directly to Anthropic (changing only the base URL); the gateway forwards each
 call and records exact tokens, cost, latency, and status per call in Postgres.
 
-**Status:** Stages 1-6 (gateway core, streaming, budgets and alerts, categories, ops
-dashboard, context handoff). The handoff eval is planned next.
+**Status:** Stages 1-7 (gateway core, streaming, budgets and alerts, categories, ops
+dashboard, context handoff, handoff eval). Shipping (Docker, CI) is next.
+
+**Measured:** the session classifier is 88.4% accurate on 43 hand-labeled sessions, and
+the structured handoff keeps 89.5% of a session's context (vs 90.8% for the full
+transcript and 71.3% for a plain summary) at under a quarter of the transcript's tokens.
+Details: [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## How it works
 
@@ -179,6 +184,9 @@ was tried and failed, and open questions.
   session page once it has an alert; the button works any time. Each generation costs
   a few cents, so there is a per-session cooldown (`HANDOFF_COOLDOWN_S`, 60s).
 - **Needs `STORE_CONTENT=true`** while the session runs.
+- **Measured:** a fresh model answered 89.5% of questions about the session from the
+  handoff, vs 90.8% from the full transcript, using 23% of the tokens (17% for long
+  sessions); see [docs/EVALUATION.md](docs/EVALUATION.md#context-handoff-stage-7).
 
 The session's owner can also get it with their gateway key, scoped to their own
 sessions:

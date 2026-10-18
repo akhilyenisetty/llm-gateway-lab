@@ -133,3 +133,124 @@ Reproduce:
   agreement was measured.
 - **Effort `low` was not compared** with higher effort levels; with all runs already
   agreeing, run-to-run noise is not what limits accuracy here.
+
+## Context handoff (Stage 7)
+
+When a session gets long, the gateway can write a structured **handoff document**
+(see [README](../README.md#context-handoff)) for a fresh session to continue from. This
+section measures how much of a session's context a fresh model gets from it, against
+the obvious alternatives, and at what token cost.
+
+### Result
+
+| Briefing | Accuracy (mean of 3 runs) | Range | Reader input tokens | Cost to write |
+|---|---|---|---|---|
+| Raw transcript | 90.8% | 89.4–91.8% | 28,967 | $0 |
+| **Structured handoff** | **89.5%** | 88.7–90.1% | **6,547** (23% of raw) | $0.145 |
+| Plain summary | 71.3% | 69.5–72.6% | 2,869 | $0.093 |
+| No briefing | 0.0% | 0.0% | 803 | $0 |
+
+- **The structured handoff kept almost all of the context the raw transcript did** (89.5%
+  vs 90.8%; the run ranges overlap, so the difference is within noise) **at under a
+  quarter of the tokens.**
+- **A plain summary is shorter but loses ~19 points**, mostly decisions and their reasons
+  (43% vs 85% for the handoff) and failed attempts (79% vs 98%), which is exactly what
+  the handoff's "decisions and why" and "tried and failed" sections exist for.
+- **No briefing scored 0%**: the reader says "not in the briefing" rather than guessing,
+  so guesses don't inflate the other scores.
+
+### The saving grows with session length
+
+| Session length | Raw transcript | Handoff | Handoff accuracy vs raw |
+|---|---|---|---|
+| Medium (6 cases) | 17,275 tokens | 6,241 (36% of raw) | 86.6% vs 87.3% |
+| Long (6 cases) | 42,840 tokens | 7,387 (17% of raw) | 91.8% vs 93.5% |
+| Real session (1) | 15,889 tokens | 3,338 (21% of raw) | 93.3% vs 95.0% |
+
+The handoff stays at 6-7K tokens however long the session gets, while the raw transcript
+grows with it, and its accuracy stays within 1-2 points of raw. (With 29K-token raw
+transcripts, the Haiku reader did not yet lose information to length; at Claude Code's
+real session sizes the raw option also stops fitting comfortably, which this eval
+doesn't measure.)
+
+Accuracy by question type (146 questions, 3 runs pooled):
+
+| Question type | Raw | Summary | Handoff |
+|---|---|---|---|
+| Goal | 93.6% | 94.9% | 94.9% |
+| Constraint | 94.9% | 84.6% | 94.9% |
+| Decision (and why) | 89.2% | **43.2%** | 85.1% |
+| Reversed decision (current approach and why) | 94.9% | 85.9% | 89.7% |
+| Failed attempt (and why) | 100.0% | 78.8% | 97.7% |
+| Key file | 98.5% | 77.3% | 97.0% |
+| Current state | 91.1% | 82.2% | 92.2% |
+| Open task | 63.6% | 71.2% | 72.7% |
+| Next step | 83.3% | 69.7% | 80.3% |
+
+Open tasks are the hardest for every briefing, including the raw transcript: they are
+stated in passing late in the session and are easy to miss; the handoff's explicit "open
+tasks" section beat even the raw transcript there.
+
+### Method
+
+- **Ground truth comes first.** For each of 12 synthetic cases, Claude Sonnet 5.5 wrote a
+  fact sheet for a realistic coding scenario (goal, 3-4 decisions with reasons, one
+  decision reversed mid-session, 2 failed attempts, constraints, key files, current
+  state, open tasks, next step), then a coding-agent session containing those facts,
+  then 10-12 quiz questions from the fact sheet. Questions are never written from a
+  summary or handoff, so the eval can't be circular.
+- **Facts are scattered on purpose.** Sessions are written in segments (2 for medium, 6
+  for long), with facts assigned to segments in code: the reversed decision is agreed
+  early and replaced late, one constraint is mentioned only once mid-session, and long
+  sessions have stretches of exploration and side tasks with no new facts.
+- **Every question is answerable.** Each question carries a verbatim quote from the
+  transcript as evidence; a question whose quote isn't in the rendered transcript (what
+  every briefing is built from) is dropped automatically (9 of 145 synthetic and 1 of
+  11 real questions were).
+- **One real case:** the expense-tracker Claude Code session from Stage 6, with 10
+  questions written from its transcript and reviewed by the person who did the work (one
+  question removed because it came from Claude Code's internal next-prompt suggestion,
+  one corrected).
+- **Four briefings per case and run**, all from the same rendered transcript: the
+  transcript itself, a plain summary ("summarize for someone who will continue the
+  work"), the structured handoff (the gateway's own code), and nothing. Summaries and
+  handoffs are regenerated every run, so writer variability is included.
+- **A reader** (Claude Haiku 5.5) answers all questions from one briefing, told to say
+  "not in the briefing" rather than guess. **A judge** (Claude Opus 5.5, pinned, a
+  different model from the writer) grades each answer against the reference as correct
+  (1), partial (0.5), or wrong (0), by meaning, without knowing which briefing it came
+  from.
+- **Runs are checkpointed**: each graded unit is saved as it finishes, and `--resume`
+  continues an interrupted run without redoing paid work.
+
+| Setting | Value |
+|---|---|
+| Briefing writer | `claude-sonnet-5-5`, effort high; handoff prompt v1, summary prompt v1 |
+| Reader | `claude-haiku-5-5`, effort medium |
+| Judge | `claude-opus-5-5`, effort medium (pinned) |
+| Dataset | 12 synthetic cases (6 medium ~9K tokens, 6 long ~24K tokens of transcript) + 1 real; 146 questions; sha256 `a398b80489af` |
+| Runs | 3 |
+| Cost | $13.93 for the 3 runs; dataset generation ~$9.30 (one-off) |
+| Date, commit | 2026-10-18, `f6f321e` (plus the uncommitted Stage 7 code) |
+
+Reproduce:
+
+```bash
+.venv/bin/python -m evals.generate_handoff_cases     # once (~$9); --resume fills gaps
+.venv/bin/python -m evals.run_handoff_eval --runs 3   # --resume after an interruption
+```
+
+### Limitations
+
+- **The reader is Haiku**, a small model. A stronger reader would likely do better on the
+  raw transcript and summary too; the comparison between briefings is what this measures.
+- **Synthetic sessions are written by Claude Sonnet**, the same model that writes the
+  summaries and handoffs, which may favor its own style. Questions and grading are tied
+  to the fact sheet and verified quotes, not to any briefing's wording, which limits this.
+- **One real case.** The real session agrees with the synthetic result (93.3% vs 95.0%),
+  but one case is anecdotal.
+- **Medium sessions' minimum length was lowered** from 30K to 25K characters during
+  generation after one theme repeatedly came out at 26-28K; every medium case still
+  measured 30.6K-43.9K characters.
+- **Questions test recall, not continuation.** The eval asks what the next session must
+  know; it doesn't measure whether a model actually continues the work correctly.
